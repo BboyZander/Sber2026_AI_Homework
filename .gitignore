@@ -1,0 +1,38 @@
+# Запрошенные исключения
+node_modules
+.next
+.env
+.env.local
+dist
+.DS_Store
+
+# Next.js / Vercel
+out
+.vercel
+
+# dependencies (yarn / pnp)
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# production
+/build
+
+# misc
+*.pem
+.env*.local
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# typescript
+*.tsbuildinfo
