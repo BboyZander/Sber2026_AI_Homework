@@ -13,8 +13,11 @@ import {
   notifyEmployerTasksChanged,
   updateEmployerTask,
 } from "@/lib/employer-tasks-storage";
-import type { Task } from "@/types/task";
+import type { EmployerProfile } from "@/types/user";
+import type { Task, TaskPaymentType } from "@/types/task";
+import { getEmployerProfileMerged } from "@/lib/employer-profile";
 import { EMPLOYER_TOASTS } from "@/lib/ui-copy";
+import { withNormalizedTaskPayment } from "@/lib/task-payment";
 
 export const EMPLOYER_FLOW_TOAST_EVENT = "trajectory-employer-flow-toast";
 
@@ -29,7 +32,9 @@ export type EmployerTaskPayload = {
   workFormat: Task["workFormat"];
   durationBucket: Task["durationBucket"];
   durationLabel: string;
-  payRub: number;
+  paymentType: TaskPaymentType;
+  paymentAmount: number;
+  estimatedHours?: number;
   location?: string;
   deadline?: string;
   minAge?: number;
@@ -45,6 +50,9 @@ export type EmployerTaskPatch = Partial<
     | "workFormat"
     | "durationBucket"
     | "durationLabel"
+    | "paymentType"
+    | "paymentAmount"
+    | "estimatedHours"
     | "payRub"
     | "location"
     | "deadline"
@@ -113,12 +121,13 @@ export function pushEmployerToast(message: string): void {
 export function publishTask(payload: EmployerTaskPayload): Task {
   const employerId = getCurrentEmployerId();
   const employer = getDemoUserById(employerId);
-  const employerName =
-    employer && employer.role === "employer"
-      ? employer.companyName
-      : getDemoEmployer().companyName;
+  let employerName = getDemoEmployer().companyName;
+  if (employer && employer.role === "employer") {
+    const { login: _l, password: _p, ...rest } = employer;
+    employerName = getEmployerProfileMerged(rest as EmployerProfile).companyName;
+  }
 
-  const task: Task = {
+  const raw: Task = {
     id: `local-task-${Date.now()}`,
     employerId,
     employerName,
@@ -127,7 +136,10 @@ export function publishTask(payload: EmployerTaskPayload): Task {
     category: payload.category,
     status: "published",
     rewardXp: 80,
-    payRub: payload.payRub,
+    paymentType: payload.paymentType,
+    paymentAmount: payload.paymentAmount,
+    estimatedHours: payload.paymentType === "hourly" ? payload.estimatedHours : undefined,
+    payRub: 0,
     workFormat: payload.workFormat,
     durationBucket: payload.durationBucket,
     durationLabel: payload.durationLabel.trim(),
@@ -137,6 +149,7 @@ export function publishTask(payload: EmployerTaskPayload): Task {
     deadline: payload.deadline,
     createdAt: new Date().toISOString(),
   };
+  const task = withNormalizedTaskPayment(raw);
 
   appendEmployerTask(task);
   emitEmployerToast(EMPLOYER_TOASTS.publish);

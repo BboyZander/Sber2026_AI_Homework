@@ -20,6 +20,7 @@ export const demoUsers: DemoAccount[] = [
     xp: 140,
     completedTasksCount: 1,
     interests: ["digital", "events", "part-time"],
+    preferredTaskFormat: "any",
   },
   {
     id: "u2",
@@ -29,7 +30,16 @@ export const demoUsers: DemoAccount[] = [
     email: "u2@demo.trajectory",
     name: "ООО Ивент Плюс",
     companyName: "ООО Ивент Плюс",
+    inn: "7704358219",
+    innIp: "770435821912",
+    ogrn: "1027700132195",
+    ogrnip: "320774600227643",
     city: "Москва",
+    customerType: "legal_entity",
+    taskCategories: ["events", "promo"],
+    cabinetDescription:
+      "Организуем городские мероприятия и промо для брендов; привлекаем школьников и студентов к легальным подработкам.",
+    cabinetTags: ["ивенты", "промо", "b2b"],
   },
 ];
 

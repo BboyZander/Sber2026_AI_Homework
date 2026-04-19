@@ -2,6 +2,7 @@
 
 import type { Task } from "@/types/task";
 import { demoTasks, tasksByEmployer } from "@/data/demo-tasks";
+import { withNormalizedTaskPayment } from "@/lib/task-payment";
 
 const EXTRA_KEY = "trajectory-employer-tasks-extra-v1";
 
@@ -32,18 +33,22 @@ export function notifyEmployerTasksChanged() {
 export function getEmployerTasks(employerId: string): Task[] {
   const demo = tasksByEmployer(employerId);
   if (typeof window === "undefined") {
-    return [...demo].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return [...demo]
+      .map(withNormalizedTaskPayment)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
   const extras = readExtra().filter((t) => t.employerId === employerId);
   const merged = [...demo, ...extras];
-  return merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return merged
+    .map(withNormalizedTaskPayment)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export function appendEmployerTask(task: Task) {
   if (typeof window === "undefined") return;
   const extras = readExtra();
   if (extras.some((t) => t.id === task.id)) return;
-  writeExtra([task, ...extras]);
+  writeExtra([withNormalizedTaskPayment(task), ...extras]);
   notifyEmployerTasksChanged();
 }
 
@@ -58,7 +63,13 @@ export function updateEmployerTask(taskId: string, patch: Partial<Task>): Task |
   let updated: Task | null = null;
   const next = extras.map((t) => {
     if (t.id !== taskId) return t;
-    updated = { ...t, ...patch, id: t.id, employerId: t.employerId, createdAt: t.createdAt };
+    updated = withNormalizedTaskPayment({
+      ...t,
+      ...patch,
+      id: t.id,
+      employerId: t.employerId,
+      createdAt: t.createdAt,
+    });
     return updated;
   });
   if (!updated) return null;
@@ -77,9 +88,10 @@ export function deleteEmployerTask(taskId: string): boolean {
 }
 
 export function getAllTasksMerged(): Task[] {
-  if (typeof window === "undefined") return [...demoTasks];
-  const extras = readExtra();
-  return [...demoTasks, ...extras].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const base = typeof window === "undefined" ? [...demoTasks] : [...demoTasks, ...readExtra()];
+  return base
+    .map(withNormalizedTaskPayment)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export function getMergedTaskById(taskId: string): Task | null {

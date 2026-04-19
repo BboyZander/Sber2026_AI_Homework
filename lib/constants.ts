@@ -8,6 +8,7 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 export const APPLICATION_STATUSES = [
   "sent",
   "awaiting",
+  "rejected",
   "in_progress",
   "completed",
   "paid",
@@ -18,6 +19,7 @@ export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   sent: "Отправлен",
   awaiting: "Ждём ответа",
+  rejected: "Отклонена",
   in_progress: "В работе",
   completed: "Выполнено",
   paid: "Оплачено",
@@ -27,6 +29,7 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
 export const APPLICATION_STATUS_HINTS: Record<ApplicationStatus, string> = {
   sent: "Работодатель ещё не ответил — обычно это пара дней.",
   awaiting: "Заявку смотрят, скоро будет ответ.",
+  rejected: "Работодатель отклонил заявку по этой задаче. Можно отозвать отклик и попробовать снова или выбрать другую задачу.",
   in_progress: "Ты в деле: уточни детали у контакта из карточки задачи.",
   completed: "Ты отметил выполнение — жди подтверждения выплаты.",
   paid: "Готово: опыт на балансе, сумма в кошельке (в демо).",

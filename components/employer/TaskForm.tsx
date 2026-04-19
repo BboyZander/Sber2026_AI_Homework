@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { type FormEvent, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { DurationBucket, TaskCategory, WorkFormat } from "@/lib/constants";
 import {
   CATEGORY_LABELS,
@@ -13,7 +13,8 @@ import {
 } from "@/lib/constants";
 import { publishTask } from "@/lib/employer-flow";
 import { formatRub } from "@/lib/helpers";
-import type { Task } from "@/types/task";
+import type { Task, TaskPaymentType } from "@/types/task";
+import { taskPaymentEmployerSummary } from "@/lib/task-payment";
 import { CTAButton } from "@/components/shared/CTAButton";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
@@ -25,7 +26,10 @@ type FormData = {
   location: string;
   durationBucket: DurationBucket;
   durationLabel: string;
-  payRub: string;
+  paymentType: TaskPaymentType;
+  fixedPayRub: string;
+  hourlyRate: string;
+  estimatedHours: string;
   minAge: string;
   maxAge: string;
   deadline: string;
@@ -41,7 +45,10 @@ const initialForm: FormData = {
   location: "",
   durationBucket: "short",
   durationLabel: "",
-  payRub: "",
+  paymentType: "fixed",
+  fixedPayRub: "",
+  hourlyRate: "",
+  estimatedHours: "",
   minAge: "14",
   maxAge: "17",
   deadline: "",
@@ -59,7 +66,6 @@ function validateField(field: keyof FormData, values: FormData): string | undefi
   const location = values.location.trim();
   const minAge = Number(values.minAge);
   const maxAge = Number(values.maxAge);
-  const pay = Number(values.payRub);
 
   if (field === "title") {
     if (title.length < 6) return "Название — не короче 6 символов.";
@@ -75,8 +81,20 @@ function validateField(field: keyof FormData, values: FormData): string | undefi
       return "Укажите длительность.";
     }
   }
-  if (field === "payRub") {
-    if (!Number.isFinite(pay) || pay < 300) return "Минимум 300 ₽.";
+  if (field === "fixedPayRub") {
+    if (values.paymentType !== "fixed") return undefined;
+    const n = Number(values.fixedPayRub);
+    if (!Number.isFinite(n) || n < 300) return "Минимум 300 ₽ за задачу.";
+  }
+  if (field === "hourlyRate") {
+    if (values.paymentType !== "hourly") return undefined;
+    const n = Number(String(values.hourlyRate).replace(",", "."));
+    if (!Number.isFinite(n) || n <= 0) return "Укажите ставку в час (число больше 0).";
+  }
+  if (field === "estimatedHours") {
+    if (values.paymentType !== "hourly") return undefined;
+    const n = Number(String(values.estimatedHours).replace(",", "."));
+    if (!Number.isFinite(n) || n <= 0) return "Укажите ожидаемую длительность в часах (число больше 0).";
   }
   if (field === "minAge" || field === "maxAge") {
     if (!Number.isFinite(minAge) || !Number.isFinite(maxAge)) return "Возраст — числом.";
@@ -96,7 +114,9 @@ function validateAll(values: FormData): FormErrors {
     "description",
     "location",
     "durationLabel",
-    "payRub",
+    "fixedPayRub",
+    "hourlyRate",
+    "estimatedHours",
     "minAge",
     "maxAge",
     "deadline",
@@ -113,6 +133,16 @@ function FieldError({ text }: { text?: string }) {
   return text ? <p className="m-0 mt-1 text-xs text-rose-300">{text}</p> : null;
 }
 
+function previewComparablePay(values: FormData): number {
+  if (values.paymentType === "fixed") {
+    return Number(values.fixedPayRub);
+  }
+  const rate = Number(values.hourlyRate);
+  const h = Number(values.estimatedHours.replace(",", "."));
+  if (!Number.isFinite(rate) || !Number.isFinite(h)) return NaN;
+  return Math.round(rate * h);
+}
+
 export function TaskForm() {
   const [values, setValues] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -123,10 +153,12 @@ export function TaskForm() {
 
   function setField<K extends keyof FormData>(key: K, value: FormData[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
-    if (submitted) {
-      setErrors((prev) => ({ ...prev, [key]: validateField(key, { ...values, [key]: value }) }));
-    }
   }
+
+  useEffect(() => {
+    if (!submitted) return;
+    setErrors(validateAll(values));
+  }, [values, submitted]);
 
   function onBlurField(field: keyof FormData) {
     setErrors((prev) => ({ ...prev, [field]: validateField(field, values) }));
@@ -140,7 +172,7 @@ export function TaskForm() {
   }
 
   const previewDuration = formatDurationLabel(values.durationBucket, values.durationLabel);
-  const previewPay = Number(values.payRub);
+  const previewPayTotal = previewComparablePay(values);
   const previewAge = `${values.minAge || "14"}-${values.maxAge || "17"} лет`;
   const canSubmit = useMemo(() => Object.keys(validateAll(values)).length === 0, [values]);
 
@@ -194,9 +226,10 @@ export function TaskForm() {
             <StatusBadge kind="task" status="published" />
           </div>
           <p className="mt-2 text-sm text-sub">{created.description}</p>
-          <p className="m-0 text-xs text-sub">
-            {CATEGORY_LABELS[created.category]} · {WORK_FORMAT_LABELS[created.workFormat]} · {created.durationLabel}{" "}
-            · {formatRub(created.payRub)} · {created.location || "Локация уточняется"}
+          <p className="m-0 mt-2 text-xs font-medium text-ink">{taskPaymentEmployerSummary(created)}</p>
+          <p className="m-0 mt-1 text-xs text-sub">
+            {CATEGORY_LABELS[created.category]} · {WORK_FORMAT_LABELS[created.workFormat]} · {created.durationLabel} ·{" "}
+            {created.location || "Локация уточняется"}
           </p>
         </motion.article>
       </motion.div>
@@ -214,11 +247,16 @@ export function TaskForm() {
         if (Object.keys(all).length > 0) return;
         setPublishing(true);
         window.setTimeout(() => {
+          const rate = Number(values.hourlyRate);
+          const h = Number(values.estimatedHours.replace(",", "."));
           const nextTask: Task = publishTask({
             title: values.title.trim(),
             description: values.description.trim(),
             category: values.category,
-            payRub: Number(values.payRub),
+            paymentType: values.paymentType,
+            paymentAmount:
+              values.paymentType === "fixed" ? Number(values.fixedPayRub) : rate,
+            estimatedHours: values.paymentType === "hourly" ? h : undefined,
             workFormat: values.workFormat,
             durationBucket: values.durationBucket,
             durationLabel: previewDuration,
@@ -234,7 +272,7 @@ export function TaskForm() {
     >
       <div className="space-y-4">
         <section className="ui-card space-y-4">
-          <h2 className="m-0 text-base font-semibold text-ink">1. О задаче</h2>
+          <h2 className="m-0 text-base font-semibold text-ink">О задаче</h2>
 
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-sub">Название задачи</span>
@@ -267,7 +305,7 @@ export function TaskForm() {
         </section>
 
         <section className="ui-card space-y-4">
-          <h2 className="m-0 text-base font-semibold text-ink">2. Условия</h2>
+          <h2 className="m-0 text-base font-semibold text-ink">Условия</h2>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
@@ -351,38 +389,104 @@ export function TaskForm() {
         </section>
 
         <section className="ui-card space-y-4">
-          <h2 className="m-0 text-base font-semibold text-ink">3. Оплата и срок</h2>
+          <h2 className="m-0 text-base font-semibold text-ink">Оплата и срок</h2>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium text-sub">Оплата, ₽</span>
+          <div>
+            <span className="mb-2 block text-sm font-medium text-sub">Тип оплаты</span>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { id: "fixed" as const, label: "Фиксированная" },
+                  { id: "hourly" as const, label: "Почасовая" },
+                ] as const
+              ).map((opt) => {
+                const active = values.paymentType === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setField("paymentType", opt.id)}
+                    className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                      active
+                        ? "border-accent/50 bg-accent-soft text-accent-bright ring-1 ring-accent/30"
+                        : "border-edge bg-panel text-sub hover:border-edge-strong hover:text-ink"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {values.paymentType === "fixed" ? (
+            <label className="block max-w-md">
+              <span className="mb-1 block text-sm font-medium text-sub">Оплата за задачу, ₽</span>
               <input
                 type="number"
                 min={300}
                 step={100}
-                value={values.payRub}
-                onChange={(e) => setField("payRub", e.target.value)}
-                onBlur={() => onBlurField("payRub")}
+                value={values.fixedPayRub}
+                onChange={(e) => setField("fixedPayRub", e.target.value)}
+                onBlur={() => onBlurField("fixedPayRub")}
                 placeholder="1200"
                 className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
               />
-              <FieldError text={errors.payRub} />
+              <FieldError text={errors.fixedPayRub} />
             </label>
+          ) : (
+            <div className="grid max-w-xl gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-sub">Ставка в час, ₽</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={values.hourlyRate}
+                  onChange={(e) => setField("hourlyRate", e.target.value)}
+                  onBlur={() => onBlurField("hourlyRate")}
+                  placeholder="350"
+                  className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
+                />
+                <FieldError text={errors.hourlyRate} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-sub">Ожидаемая длительность, ч</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={values.estimatedHours}
+                  onChange={(e) => setField("estimatedHours", e.target.value)}
+                  onBlur={() => onBlurField("estimatedHours")}
+                  placeholder="2"
+                  className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
+                />
+                <FieldError text={errors.estimatedHours} />
+              </label>
+              <p className="m-0 text-xs text-sub sm:col-span-2">
+                Ориентир по оплате:{" "}
+                {Number.isFinite(previewPayTotal) && previewPayTotal > 0 ? (
+                  <span className="font-medium text-ink">{formatRub(previewPayTotal)}</span>
+                ) : (
+                  "—"
+                )}{" "}
+                (ставка × часы)
+              </p>
+            </div>
+          )}
 
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium text-sub">Срок</span>
-              <input
-                type="datetime-local"
-                value={values.deadline}
-                onChange={(e) => setField("deadline", e.target.value)}
-                onBlur={() => onBlurField("deadline")}
-                className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
-              />
-              <FieldError text={errors.deadline} />
-            </label>
-          </div>
+          <label className="block max-w-md">
+            <span className="mb-1 block text-sm font-medium text-sub">Срок</span>
+            <input
+              type="datetime-local"
+              value={values.deadline}
+              onChange={(e) => setField("deadline", e.target.value)}
+              onBlur={() => onBlurField("deadline")}
+              className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
+            />
+            <FieldError text={errors.deadline} />
+          </label>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 sm:max-w-xl">
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-sub">Возраст от</span>
               <input
@@ -435,10 +539,37 @@ export function TaskForm() {
             <span className="rounded-lg border border-edge px-2 py-1">{WORK_FORMAT_LABELS[values.workFormat]}</span>
             <span className="rounded-lg border border-edge px-2 py-1">{previewDuration}</span>
           </div>
-          <p className="mt-3 m-0 text-sm text-ink">
-            {Number.isFinite(previewPay) && previewPay > 0 ? formatRub(previewPay) : "Оплата не указана"}
-          </p>
-          <p className="m-0 mt-1 text-xs text-sub">{values.location || "Локация не указана"} · {previewAge}</p>
+          <div className="mt-3 space-y-1">
+            <p className="m-0 text-sm font-medium text-ink">
+              {values.paymentType === "fixed" ? (
+                Number.isFinite(Number(values.fixedPayRub)) && Number(values.fixedPayRub) > 0 ? (
+                  <>{formatRub(Number(values.fixedPayRub))} за задачу</>
+                ) : (
+                  "Оплата не указана"
+                )
+              ) : (
+                <>
+                  {Number.isFinite(Number(values.hourlyRate)) && Number(values.hourlyRate) > 0 ? (
+                    <span>
+                      {new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(Number(values.hourlyRate))}{" "}
+                      ₽/час
+                    </span>
+                  ) : (
+                    "Ставка не указана"
+                  )}
+                </>
+              )}
+            </p>
+            {values.paymentType === "hourly" &&
+            Number.isFinite(previewPayTotal) &&
+            previewPayTotal > 0 &&
+            Number(values.estimatedHours) > 0 ? (
+              <p className="m-0 text-xs text-sub">
+                ~{formatRub(previewPayTotal)} · {values.estimatedHours.replace(".", ",")} ч ожидается
+              </p>
+            ) : null}
+          </div>
+          <p className="m-0 mt-2 text-xs text-sub">{values.location || "Локация не указана"} · {previewAge}</p>
         </article>
       </aside>
     </form>

@@ -11,7 +11,7 @@ export const TEEN_APPLICATIONS_WITHDRAWN_KEY = WITHDRAWN_KEY;
 export const TEEN_APPLICATIONS_OVERRIDES_KEY = OVERRIDES_KEY;
 export const TEEN_APPLICATIONS_EVENT = "trajectory-teen-applications";
 
-const WITHDRAWABLE_STATUSES: ApplicationStatus[] = ["sent", "awaiting"];
+const WITHDRAWABLE_STATUSES: ApplicationStatus[] = ["sent", "awaiting", "rejected"];
 
 function readExtra(): Application[] {
   if (typeof window === "undefined") return [];
@@ -103,7 +103,7 @@ export function getMergedApplicationsForTeen(teenId: string): Application[] {
   const fromDemo = demo.filter(
     (a) => !withdrawn.has(a.taskId) && !extraTaskIds.has(a.taskId),
   );
-  return [...fromDemo, ...extrasForTeen].sort(
+  return applyOverrides([...fromDemo, ...extrasForTeen]).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 }

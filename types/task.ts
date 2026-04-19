@@ -1,5 +1,7 @@
 import type { DurationBucket, TaskCategory, TaskStatus, WorkFormat } from "@/lib/constants";
 
+export type TaskPaymentType = "fixed" | "hourly";
+
 export interface Task {
   id: string;
   title: string;
@@ -9,7 +11,15 @@ export interface Task {
   category: TaskCategory;
   status: TaskStatus;
   rewardXp: number;
-  /** Демо: вознаграждение в рублях для каталога */
+  /** Фикс: сумма за задачу ₽. Почасовая: ставка ₽/ч. */
+  paymentType: TaskPaymentType;
+  paymentAmount: number;
+  /** Только для почасовой: ожидаемая длительность в часах. */
+  estimatedHours?: number;
+  /**
+   * Оценка «всего ₽ за задачу» для сортировки и демо-кошелька (ставка×часы или фикс).
+   * Синхронизируется вместе с payment*.
+   */
   payRub: number;
   workFormat: WorkFormat;
   durationBucket: DurationBucket;

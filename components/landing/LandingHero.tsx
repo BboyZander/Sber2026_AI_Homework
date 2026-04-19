@@ -50,7 +50,7 @@ export function LandingHero() {
               href="/login"
               className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-accent to-accent-dark px-6 py-3.5 text-sm font-semibold text-white shadow-xl shadow-accent/22 transition duration-200 ease-out hover:brightness-110 active:scale-[0.98] no-underline hover:no-underline"
             >
-              Я хочу подработку
+              Я ищу подработку
             </Link>
             <Link
               href="/login"

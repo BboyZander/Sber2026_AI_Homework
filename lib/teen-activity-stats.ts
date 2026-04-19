@@ -1,5 +1,6 @@
 import type { Application } from "@/types/application";
 import { getTaskByIdForFlow } from "@/lib/employer-flow";
+import { taskComparablePayRub } from "@/lib/task-payment";
 
 export function computeTeenActivityStats(apps: Application[]) {
   const applicationsCount = apps.length;
@@ -11,7 +12,7 @@ export function computeTeenActivityStats(apps: Application[]) {
   for (const a of apps) {
     if (a.status !== "paid") continue;
     const t = getTaskByIdForFlow(a.taskId);
-    earnedDemoRub += t?.payRub ?? 0;
+    earnedDemoRub += t ? taskComparablePayRub(t) : 0;
     earnedDemoXp += t?.rewardXp ?? 0;
   }
   return { applicationsCount, completedTasksCount, earnedDemoRub, earnedDemoXp };

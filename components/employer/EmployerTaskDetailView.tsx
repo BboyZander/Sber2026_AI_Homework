@@ -23,19 +23,22 @@ import {
   TEEN_APPLICATIONS_EVENT,
   updateApplicationStatus,
 } from "@/lib/teen-flow";
-import { formatDate, formatRub } from "@/lib/helpers";
-import type { Task } from "@/types/task";
+import { formatDate } from "@/lib/helpers";
+import type { Task, TaskPaymentType } from "@/types/task";
+import { taskPaymentEmployerSummary, taskPaymentTeenEstimatedTotalLine } from "@/lib/task-payment";
 import type { Application } from "@/types/application";
 
 export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
   const [task, setTask] = useState<Task | null>(null);
   const [apps, setApps] = useState<Application[]>([]);
-  const [copied, setCopied] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [draft, setDraft] = useState({
     title: "",
     description: "",
-    payRub: "",
+    paymentType: "fixed" as TaskPaymentType,
+    fixedPayRub: "",
+    hourlyRate: "",
+    estimatedHours: "",
     location: "",
     durationLabel: "",
     deadline: "",
@@ -46,10 +49,14 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
     setTask(t);
     setApps(getApplicationsForTask(taskId));
     if (t) {
+      const pt = t.paymentType ?? "fixed";
       setDraft({
         title: t.title,
         description: t.description,
-        payRub: String(t.payRub),
+        paymentType: pt,
+        fixedPayRub: pt === "fixed" ? String(t.paymentAmount) : "",
+        hourlyRate: pt === "hourly" ? String(t.paymentAmount) : "",
+        estimatedHours: pt === "hourly" && t.estimatedHours != null ? String(t.estimatedHours) : "",
         location: t.location ?? "",
         durationLabel: t.durationLabel,
         deadline: t.deadline ? new Date(t.deadline).toISOString().slice(0, 16) : "",
@@ -80,23 +87,20 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
     return "14–17 лет";
   }, [task]);
 
-  async function copyLink() {
-    if (typeof window === "undefined") return;
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      setCopied(false);
-    }
-  }
-
   function saveEdits() {
     if (!task) return;
+    const pt = draft.paymentType;
+    const paymentAmount =
+      pt === "fixed" ? Number(draft.fixedPayRub || 0) : Number(draft.hourlyRate || 0);
+    const estimatedHours =
+      pt === "hourly" ? Number(String(draft.estimatedHours).replace(",", ".")) : undefined;
     const updated = editTask(task.id, {
       title: draft.title.trim(),
       description: draft.description.trim(),
-      payRub: Number(draft.payRub || 0),
+      paymentType: pt,
+      paymentAmount,
+      estimatedHours: pt === "hourly" ? estimatedHours : undefined,
+      payRub: 0,
       location: draft.location.trim(),
       durationLabel: draft.durationLabel.trim(),
       deadline: draft.deadline ? new Date(draft.deadline).toISOString() : undefined,
@@ -121,6 +125,7 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
   }
 
   function advanceApplication(app: Application) {
+    if (app.status === "rejected") return;
     const next =
       app.status === "sent" || app.status === "awaiting"
         ? "in_progress"
@@ -134,6 +139,15 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
       if (next === "in_progress") pushEmployerToast(EMPLOYER_TOASTS.applicationInProgress);
       if (next === "paid") pushEmployerToast(EMPLOYER_TOASTS.applicationPaid);
     }
+  }
+
+  function rejectApplication(app: Application) {
+    if (app.status === "rejected") return;
+    if (!(app.status === "sent" || app.status === "awaiting")) return;
+    if (!window.confirm(EMPLOYER_CONFIRM.rejectApplication)) return;
+    const ok = updateApplicationStatus(app.id, "rejected");
+    refresh();
+    if (ok) pushEmployerToast(EMPLOYER_TOASTS.applicationRejected);
   }
 
   if (!task) {
@@ -152,17 +166,12 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
       <article className="space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <Link
-            href="/employer/tasks"
-            className="text-sm font-medium text-accent underline-offset-2 hover:text-accent-bright hover:underline"
-          >
-            ← К списку задач
-          </Link>
-          <button type="button" onClick={copyLink} className="ui-btn-ghost border-0 px-3 py-1.5 text-xs">
-            {copied ? "Ссылка скопирована" : "Скопировать ссылку"}
-          </button>
-        </div>
+        <Link
+          href="/employer/tasks"
+          className="text-sm font-medium text-accent underline-offset-2 hover:text-accent-bright hover:underline"
+        >
+          ← К списку задач
+        </Link>
 
         <section className="ui-card border-edge-strong">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -231,19 +240,68 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
                 )}
               </dd>
             </div>
-            <div className="rounded-xl border border-edge bg-panel px-3 py-2">
+            <div className="rounded-xl border border-edge bg-panel px-3 py-2 sm:col-span-2">
               <dt className="text-xs text-sub">Оплата</dt>
               <dd className="m-0 mt-1 text-sm font-medium text-ink">
-                {editMode ? (
-                  <input
-                    type="number"
-                    min={300}
-                    value={draft.payRub}
-                    onChange={(e) => setDraft((d) => ({ ...d, payRub: e.target.value }))}
-                    className="w-full rounded-lg border border-edge bg-panel px-2 py-1 text-sm text-ink outline-none ring-accent/35 focus:border-accent/45 focus:ring-2"
-                  />
+                {editMode && canMutate ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {(
+                        [
+                          { id: "fixed" as const, label: "Фикс" },
+                          { id: "hourly" as const, label: "Почасовая" },
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setDraft((d) => ({ ...d, paymentType: opt.id }))}
+                          className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                            draft.paymentType === opt.id
+                              ? "border-accent/50 bg-accent/15 text-ink"
+                              : "border-edge text-sub hover:border-edge-strong"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    {draft.paymentType === "fixed" ? (
+                      <input
+                        type="number"
+                        min={300}
+                        value={draft.fixedPayRub}
+                        onChange={(e) => setDraft((d) => ({ ...d, fixedPayRub: e.target.value }))}
+                        className="w-full max-w-xs rounded-lg border border-edge bg-panel px-2 py-1 text-sm text-ink outline-none ring-accent/35 focus:border-accent/45 focus:ring-2"
+                      />
+                    ) : (
+                      <div className="flex max-w-md flex-wrap gap-2">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="₽/ч"
+                          value={draft.hourlyRate}
+                          onChange={(e) => setDraft((d) => ({ ...d, hourlyRate: e.target.value }))}
+                          className="min-w-[6rem] flex-1 rounded-lg border border-edge bg-panel px-2 py-1 text-sm text-ink outline-none ring-accent/35 focus:border-accent/45 focus:ring-2"
+                        />
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="ч"
+                          value={draft.estimatedHours}
+                          onChange={(e) => setDraft((d) => ({ ...d, estimatedHours: e.target.value }))}
+                          className="min-w-[5rem] flex-1 rounded-lg border border-edge bg-panel px-2 py-1 text-sm text-ink outline-none ring-accent/35 focus:border-accent/45 focus:ring-2"
+                        />
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  formatRub(task.payRub)
+                  <div className="space-y-1">
+                    <span>{taskPaymentEmployerSummary(task)}</span>
+                    {taskPaymentTeenEstimatedTotalLine(task) ? (
+                      <p className="m-0 text-xs font-normal text-sub">{taskPaymentTeenEstimatedTotalLine(task)}</p>
+                    ) : null}
+                  </div>
                 )}
               </dd>
             </div>
@@ -277,20 +335,54 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
               {apps.map((app) => {
                 const user = getDemoUserById(app.teenId);
                 const name = user && user.role === "teen" ? user.name : app.teenId;
+                const canRespond = app.status === "sent" || app.status === "awaiting";
+                const canPay = app.status === "completed";
                 return (
-                  <li key={app.id} className="rounded-xl border border-edge bg-panel px-3 py-2">
+                  <li
+                    key={app.id}
+                    className={`rounded-xl border bg-panel px-3 py-2 ${
+                      app.status === "rejected"
+                        ? "border-rose-500/35 bg-rose-500/[0.06]"
+                        : "border-edge"
+                    }`}
+                  >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="m-0 text-sm font-medium text-ink">{name}</p>
+                      <p className="m-0 text-sm font-medium text-ink">
+                        <Link
+                          href={`/employer/teen/${app.teenId}`}
+                          className="text-ink underline-offset-2 transition hover:text-accent-bright hover:underline"
+                        >
+                          {name}
+                        </Link>
+                      </p>
                       <StatusBadge kind="application" status={app.status} />
                     </div>
                     <p className="m-0 mt-1 text-xs text-sub">Получен {formatDate(app.createdAt)}</p>
-                    {app.status === "sent" || app.status === "awaiting" || app.status === "completed" ? (
+                    {canRespond ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => advanceApplication(app)}
+                          className="text-xs font-medium text-accent underline-offset-2 transition hover:text-accent-bright hover:underline"
+                        >
+                          Взять в работу
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => rejectApplication(app)}
+                          className="text-xs font-medium text-rose-300/95 underline-offset-2 transition hover:text-rose-200 hover:underline"
+                        >
+                          Отклонить
+                        </button>
+                      </div>
+                    ) : null}
+                    {canPay ? (
                       <button
                         type="button"
                         onClick={() => advanceApplication(app)}
                         className="mt-2 text-xs font-medium text-accent underline-offset-2 transition hover:text-accent-bright hover:underline"
                       >
-                        {app.status === "completed" ? "Подтвердить оплату" : "Принять в работу"}
+                        Подтвердить оплату
                       </button>
                     ) : null}
                   </li>

@@ -13,7 +13,9 @@ import {
   getCurrentTeenId,
   withdrawApplication,
 } from "@/lib/teen-flow";
-import { formatDate, formatRub } from "@/lib/helpers";
+import { formatDate } from "@/lib/helpers";
+import { formatTaskAgeRange } from "@/lib/task-age";
+import { taskPaymentTeenEstimatedTotalLine, taskPaymentTeenPrimaryLine } from "@/lib/task-payment";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TEEN_CONFIRM } from "@/lib/ui-copy";
 
@@ -74,8 +76,14 @@ export function TeenTaskDetailView({
   const ctaLabel = applied ? "Отклик отправлен" : applyBusy ? "Отправляем…" : "Откликнуться";
   const ctaDisabled = applied || applyBusy;
 
+  const ageRangeLabel = formatTaskAgeRange(task);
+
+  const payPrimary = taskPaymentTeenPrimaryLine(task);
+  const payExtra = taskPaymentTeenEstimatedTotalLine(task);
+
   const summaryRows = [
-    { label: "Оплата", value: formatRub(task.payRub), accent: true as const },
+    { label: "Оплата", value: payPrimary, accent: true as const },
+    ...(payExtra ? [{ label: "Ориентир", value: payExtra, accent: false as const }] : []),
     { label: "Опыт", value: `+${task.rewardXp} XP`, accent: false as const },
     { label: "Формат", value: WORK_FORMAT_LABELS[task.workFormat], accent: false as const },
     { label: "Длительность", value: task.durationLabel, accent: false as const },
@@ -84,6 +92,9 @@ export function TeenTaskDetailView({
       value: DURATION_BUCKET_LABELS[task.durationBucket],
       accent: false as const,
     },
+    ...(ageRangeLabel
+      ? [{ label: "Возраст", value: ageRangeLabel, accent: false as const }]
+      : []),
     ...(task.deadline
       ? [{ label: "Срок", value: formatDate(task.deadline), accent: false as const }]
       : []),
@@ -150,6 +161,11 @@ export function TeenTaskDetailView({
           <span className="rounded-lg border border-edge bg-panel-muted/50 px-2.5 py-1 text-xs font-medium text-sub">
             {CATEGORY_LABELS[task.category]}
           </span>
+          {ageRangeLabel ? (
+            <span className="rounded-lg border border-edge bg-panel-muted/50 px-2.5 py-1 text-xs font-medium text-sub">
+              {ageRangeLabel}
+            </span>
+          ) : null}
           <span className="text-xs text-sub">
             {WORK_FORMAT_LABELS[task.workFormat]} · {task.durationLabel}
           </span>
@@ -158,14 +174,33 @@ export function TeenTaskDetailView({
         <h1 className="m-0 text-2xl font-bold leading-tight tracking-tight text-ink sm:text-3xl">
           {task.title}
         </h1>
-        <p className="mt-2 text-sm text-sub">Заказчик: {task.employerName}</p>
+        <p className="mt-2 text-sm text-sub">
+          Заказчик:{" "}
+          <Link
+            href={`/teen/employer/${task.employerId}`}
+            className="font-medium text-accent underline-offset-2 hover:text-accent-bright hover:underline"
+          >
+            {task.employerName}
+          </Link>
+        </p>
+        <p className="mt-1.5 m-0">
+          <Link
+            href={`/teen/employer/${task.employerId}`}
+            className="text-xs font-medium text-accent/90 underline-offset-2 hover:text-accent-bright hover:underline"
+          >
+            Карточка компании: реквизиты и описание →
+          </Link>
+        </p>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm lg:hidden">
-          <span className="text-lg font-bold text-ink">{formatRub(task.payRub)}</span>
-          <span className="text-sub-deep">·</span>
-          <span className="text-sub">{task.durationLabel}</span>
-          <span className="text-sub-deep">·</span>
-          <span className="text-accent-bright/90">+{task.rewardXp} XP</span>
+        <div className="mt-4 space-y-1 lg:hidden">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-lg font-bold text-ink">{payPrimary}</span>
+            <span className="text-sub-deep">·</span>
+            <span className="text-sub">{task.durationLabel}</span>
+            <span className="text-sub-deep">·</span>
+            <span className="text-accent-bright/90">+{task.rewardXp} XP</span>
+          </div>
+          {payExtra ? <p className="m-0 text-xs text-sub-deep">{payExtra}</p> : null}
         </div>
 
         <div className="mt-8 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-8">
@@ -195,8 +230,23 @@ export function TeenTaskDetailView({
               <h2 className="m-0 text-sm font-semibold uppercase tracking-wider text-accent-bright">
                 Работодатель
               </h2>
-              <p className="mt-2 m-0 text-lg font-semibold text-ink">{task.employerName}</p>
+              <p className="mt-2 m-0 text-lg font-semibold text-ink">
+                <Link
+                  href={`/teen/employer/${task.employerId}`}
+                  className="text-ink underline-offset-2 transition hover:text-accent-bright hover:underline"
+                >
+                  {task.employerName}
+                </Link>
+              </p>
               <p className="mt-2 m-0 text-sm leading-relaxed text-sub">{employerTagline}</p>
+              <p className="mt-3 m-0">
+                <Link
+                  href={`/teen/employer/${task.employerId}`}
+                  className="text-xs font-medium text-accent underline-offset-2 hover:text-accent-bright hover:underline"
+                >
+                  Открыть полную карточку компании →
+                </Link>
+              </p>
             </section>
 
             <AnimatePresence>

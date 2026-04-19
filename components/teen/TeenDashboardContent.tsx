@@ -2,12 +2,14 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StatCard } from "@/components/shared/StatCard";
 import { SectionTitle } from "@/components/shared/SectionTitle";
 import { RecommendedTasks } from "@/components/teen/RecommendedTasks";
 import { XPProgress } from "@/components/teen/XPProgress";
 import { formatRub, formatXp } from "@/lib/helpers";
+import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-store";
+import { resolveSessionTeen } from "@/lib/teen-profile";
 import { TEEN_APPLICATIONS_EVENT, getApplicationStats, getApplications } from "@/lib/teen-flow";
 import type { TeenProfile } from "@/types/user";
 
@@ -71,7 +73,7 @@ function nextStepForTeen(teenId: string): { title: string; body: string; href: s
 }
 
 export function TeenDashboardContent({
-  teen,
+  teen: initialTeen,
   stats,
 }: {
   teen: TeenProfile;
@@ -84,8 +86,23 @@ export function TeenDashboardContent({
   };
 }) {
   const reduceMotion = useReducedMotion();
+  const [teen, setTeen] = useState(initialTeen);
   const [mergedAppCount, setMergedAppCount] = useState(stats.applicationsCount);
   const [walletRub, setWalletRub] = useState(0);
+
+  const refreshTeen = useCallback(() => {
+    setTeen(resolveSessionTeen(initialTeen));
+  }, [initialTeen]);
+
+  useEffect(() => {
+    refreshTeen();
+    function onProfile(e: Event) {
+      const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
+      if (d?.role === "teen" && d.userId === initialTeen.id) refreshTeen();
+    }
+    window.addEventListener(PROFILE_UPDATED_EVENT, onProfile);
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
+  }, [refreshTeen, initialTeen.id]);
 
   useEffect(() => {
     function refresh() {

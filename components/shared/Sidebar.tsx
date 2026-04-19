@@ -9,9 +9,24 @@ const teenLinks = [
 
 const employerLinks = [
   { href: "/employer/dashboard", label: "Главная" },
+  { href: "/employer/profile", label: "Данные" },
   { href: "/employer/tasks", label: "Мои задачи" },
   { href: "/employer/tasks/new", label: "Новая" },
 ] as const;
+
+/** Один активный пункт: при вложенных путах выигрывает самый длинный совпадающий `href` (напр. `/employer/tasks/new` vs `/employer/tasks`). */
+function resolveActiveNavHref(
+  pathname: string,
+  links: readonly { href: string }[],
+): string | null {
+  const sorted = [...links].sort((a, b) => b.href.length - a.href.length);
+  for (const { href } of sorted) {
+    if (pathname === href || pathname.startsWith(`${href}/`)) {
+      return href;
+    }
+  }
+  return null;
+}
 
 function navLinkClass(vertical: boolean, active: boolean): string {
   const base =
@@ -33,6 +48,7 @@ function NavLinks({
   pathname: string;
   vertical: boolean;
 }) {
+  const activeHref = resolveActiveNavHref(pathname, links);
   return (
     <nav
       className={
@@ -43,7 +59,7 @@ function NavLinks({
       aria-label={vertical ? "Разделы" : "Нижняя навигация"}
     >
       {links.map(({ href, label }) => {
-        const active = pathname === href || pathname.startsWith(`${href}/`);
+        const active = activeHref === href;
         return (
           <Link key={href} href={href} className={navLinkClass(vertical, active)}>
             {label}

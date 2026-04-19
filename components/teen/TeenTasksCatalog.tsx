@@ -2,13 +2,11 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Task } from "@/types/task";
 import {
   CATEGORY_LABELS,
   DURATION_BUCKET_LABELS,
-  TASK_CATEGORIES,
-  WORK_FORMAT_LABELS,
   type DurationBucket,
   type TaskCategory,
   type WorkFormat,
@@ -18,10 +16,16 @@ import { SearchBar } from "@/components/shared/SearchBar";
 import { SectionTitle } from "@/components/shared/SectionTitle";
 import { TeenCatalogSkeletonList } from "@/components/shared/Skeleton";
 import { TeenCatalogTaskCard } from "@/components/teen/TeenCatalogTaskCard";
+import { TeenTaskFiltersDrawer, teenCatalogDrawerDefaults, type DrawerFilterState } from "@/components/teen/TeenTaskFiltersDrawer";
+import { TeenTasksCatalogActiveChips, type ActiveChip } from "@/components/teen/TeenTasksCatalogActiveChips";
+import { getTeenProfile, PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-store";
+import {
+  filterTeenCatalogTasks,
+  type TeenCatalogAgeFit,
+  type TeenCatalogPaySort,
+} from "@/lib/teen-task-catalog-filter";
 
-type PaySort = "none" | "high" | "low";
-
-function FilterChip({
+function QuickChip({
   active,
   children,
   onClick,
@@ -37,10 +41,10 @@ function FilterChip({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out active:scale-95 sm:text-sm disabled:pointer-events-none disabled:opacity-50 ${
+      className={`shrink-0 touch-manipulation rounded-full border px-3 py-2 text-xs font-medium transition will-change-transform active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 sm:py-1.5 sm:text-sm ${
         active
-          ? "border-accent/50 bg-accent/20 text-ink shadow-md shadow-accent/15 ring-1 ring-accent/30"
-          : "border-edge bg-panel-muted/85 text-sub hover:border-edge-strong hover:bg-raised/60 hover:text-ink"
+          ? "border-accent/50 bg-accent/20 text-ink shadow-sm shadow-accent/15 ring-1 ring-accent/30"
+          : "border-edge bg-panel-muted/85 text-sub hover:border-edge-strong hover:text-ink"
       }`}
     >
       {children}
@@ -53,49 +57,174 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
   const [category, setCategory] = useState<TaskCategory | null>(null);
   const [workFormat, setWorkFormat] = useState<WorkFormat | "all">("all");
   const [duration, setDuration] = useState<DurationBucket | "all">("all");
-  const [paySort, setPaySort] = useState<PaySort>("none");
+  const [paySort, setPaySort] = useState<TeenCatalogPaySort>("none");
+  const [ageFitMode, setAgeFitMode] = useState<TeenCatalogAgeFit>("all");
+  const [teenAge, setTeenAge] = useState<number | undefined>(undefined);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let list = tasks.filter((t) => {
-      if (!q) return true;
-      return (
-        t.title.toLowerCase().includes(q) ||
-        t.description.toLowerCase().includes(q) ||
-        t.employerName.toLowerCase().includes(q) ||
-        CATEGORY_LABELS[t.category].toLowerCase().includes(q)
-      );
-    });
-    if (category) list = list.filter((t) => t.category === category);
-    if (workFormat !== "all") list = list.filter((t) => t.workFormat === workFormat);
-    if (duration !== "all") list = list.filter((t) => t.durationBucket === duration);
-    if (paySort === "high") list = [...list].sort((a, b) => b.payRub - a.payRub);
-    else if (paySort === "low") list = [...list].sort((a, b) => a.payRub - b.payRub);
-    return list;
-  }, [tasks, query, category, workFormat, duration, paySort]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerDraft, setDrawerDraft] = useState<DrawerFilterState>(teenCatalogDrawerDefaults);
 
-  function resetFilters() {
+  useEffect(() => {
+    function syncAge() {
+      const a = getTeenProfile().age;
+      setTeenAge(typeof a === "number" && Number.isFinite(a) ? a : undefined);
+    }
+    syncAge();
+    function onProfile(e: Event) {
+      const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
+      if (d?.role === "teen") syncAge();
+    }
+    window.addEventListener(PROFILE_UPDATED_EVENT, onProfile);
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
+  }, []);
+
+  const filterInput = useMemo(
+    () => ({
+      query,
+      category,
+      workFormat,
+      duration,
+      paySort,
+      ageFitMode,
+      teenAge,
+    }),
+    [query, category, workFormat, duration, paySort, ageFitMode, teenAge],
+  );
+
+  const filtered = useMemo(() => filterTeenCatalogTasks(tasks, filterInput), [tasks, filterInput]);
+
+  const hiddenPanelFilterCount = useMemo(() => {
+    let n = 0;
+    if (category !== null) n++;
+    if (workFormat === "offline") n++;
+    if (duration === "long") n++;
+    if (paySort === "low") n++;
+    return n;
+  }, [category, workFormat, duration, paySort]);
+
+  const hasActiveFilters = useMemo(() => {
+    return (
+      query.trim() !== "" ||
+      category !== null ||
+      workFormat !== "all" ||
+      duration !== "all" ||
+      paySort !== "none" ||
+      ageFitMode === "mine"
+    );
+  }, [query, category, workFormat, duration, paySort, ageFitMode]);
+
+  const resetFilters = useCallback(() => {
     setQuery("");
     setCategory(null);
     setWorkFormat("all");
     setDuration("all");
     setPaySort("none");
-  }
+    setAgeFitMode("all");
+    setDrawerDraft(teenCatalogDrawerDefaults);
+  }, []);
 
-  const hasActiveFilters =
-    query.trim() !== "" ||
-    category !== null ||
-    workFormat !== "all" ||
-    duration !== "all" ||
-    paySort !== "none";
+  const openDrawer = useCallback(() => {
+    setDrawerDraft({
+      ageFitMode,
+      category,
+      workFormat,
+      duration,
+      paySort,
+    });
+    setDrawerOpen(true);
+  }, [ageFitMode, category, workFormat, duration, paySort]);
+
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+
+  const applyDrawer = useCallback(() => {
+    setAgeFitMode(drawerDraft.ageFitMode);
+    setCategory(drawerDraft.category);
+    setWorkFormat(drawerDraft.workFormat);
+    setDuration(drawerDraft.duration);
+    setPaySort(drawerDraft.paySort);
+    setDrawerOpen(false);
+  }, [drawerDraft]);
+
+  const resetAllFromDrawer = useCallback(() => {
+    resetFilters();
+    setDrawerOpen(false);
+  }, [resetFilters]);
+
+  const activeChips: ActiveChip[] = useMemo(() => {
+    const chips: ActiveChip[] = [];
+    const q = query.trim();
+    if (q) {
+      const short = q.length > 28 ? `${q.slice(0, 28)}…` : q;
+      chips.push({
+        id: "search",
+        label: `Поиск: ${short}`,
+        onRemove: () => setQuery(""),
+      });
+    }
+    if (ageFitMode === "mine") {
+      chips.push({
+        id: "mine",
+        label: "Подходит мне",
+        onRemove: () => setAgeFitMode("all"),
+      });
+    }
+    if (workFormat === "online") {
+      chips.push({
+        id: "online",
+        label: "Онлайн",
+        onRemove: () => setWorkFormat("all"),
+      });
+    }
+    if (duration === "short") {
+      chips.push({
+        id: "short",
+        label: DURATION_BUCKET_LABELS.short,
+        onRemove: () => setDuration("all"),
+      });
+    }
+    if (paySort === "high") {
+      chips.push({
+        id: "pay-high",
+        label: "Выше оплата",
+        onRemove: () => setPaySort("none"),
+      });
+    }
+    if (category) {
+      chips.push({
+        id: `cat-${category}`,
+        label: CATEGORY_LABELS[category],
+        onRemove: () => setCategory(null),
+      });
+    }
+    if (workFormat === "offline") {
+      chips.push({
+        id: "offline",
+        label: "Офлайн",
+        onRemove: () => setWorkFormat("all"),
+      });
+    }
+    if (duration === "long") {
+      chips.push({
+        id: "long",
+        label: DURATION_BUCKET_LABELS.long,
+        onRemove: () => setDuration("all"),
+      });
+    }
+    if (paySort === "low") {
+      chips.push({
+        id: "pay-low",
+        label: "Ниже оплата",
+        onRemove: () => setPaySort("none"),
+      });
+    }
+    return chips;
+  }, [query, ageFitMode, workFormat, duration, paySort, category]);
 
   return (
     <div className="ui-stack">
       <header className="space-y-1">
         <SectionTitle title="Задачи" />
-        <p className="text-sm text-sub">
-          Фильтры по формату, длительности и оплате. Суммы в демо — для ориентира.
-        </p>
+        <p className="text-sm text-sub">Поиск и карточки — расширенные фильтры в пару нажатий.</p>
       </header>
 
       <SearchBar
@@ -105,99 +234,79 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
         disabled={loading}
       />
 
-      <div className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-sub">Категория</p>
-        <div className="flex flex-wrap gap-2">
-          <FilterChip active={category === null} disabled={loading} onClick={() => setCategory(null)}>
-            Все
-          </FilterChip>
-          {TASK_CATEGORIES.map((cat) => (
-            <FilterChip
-              key={cat}
-              active={category === cat}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="min-w-0 sm:flex-1">
+          <div className="-mx-1 flex gap-2 overflow-x-auto overscroll-x-contain px-1 pb-0.5 [-webkit-overflow-scrolling:touch] sm:flex-wrap sm:overflow-visible sm:px-0">
+            <QuickChip
+              active={ageFitMode === "mine"}
               disabled={loading}
-              onClick={() => setCategory(category === cat ? null : cat)}
+              onClick={() => setAgeFitMode(ageFitMode === "mine" ? "all" : "mine")}
             >
-              {CATEGORY_LABELS[cat]}
-            </FilterChip>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-sub">Формат</p>
-        <div className="flex flex-wrap gap-2">
-          <FilterChip active={workFormat === "all"} disabled={loading} onClick={() => setWorkFormat("all")}>
-            Все
-          </FilterChip>
-          {(Object.keys(WORK_FORMAT_LABELS) as WorkFormat[]).map((f) => (
-            <FilterChip
-              key={f}
-              active={workFormat === f}
+              Подходит мне
+            </QuickChip>
+            <QuickChip
+              active={workFormat === "online"}
               disabled={loading}
-              onClick={() => setWorkFormat(workFormat === f ? "all" : f)}
+              onClick={() => setWorkFormat(workFormat === "online" ? "all" : "online")}
             >
-              {WORK_FORMAT_LABELS[f]}
-            </FilterChip>
-          ))}
+              Онлайн
+            </QuickChip>
+            <QuickChip
+              active={duration === "short"}
+              disabled={loading}
+              onClick={() => setDuration(duration === "short" ? "all" : "short")}
+            >
+              {DURATION_BUCKET_LABELS.short}
+            </QuickChip>
+            <QuickChip
+              active={paySort === "high"}
+              disabled={loading}
+              onClick={() => setPaySort(paySort === "high" ? "none" : "high")}
+            >
+              Выше оплата
+            </QuickChip>
+          </div>
         </div>
+        <button
+          type="button"
+          disabled={loading}
+          onClick={openDrawer}
+          className="ui-btn-ghost shrink-0 self-start border border-edge px-4 py-2 text-sm font-medium sm:self-center"
+        >
+          Фильтры
+          {hiddenPanelFilterCount > 0 ? ` (${hiddenPanelFilterCount})` : ""}
+        </button>
       </div>
 
-      <div className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-sub">Длительность</p>
-        <div className="flex flex-wrap gap-2">
-          <FilterChip active={duration === "all"} disabled={loading} onClick={() => setDuration("all")}>
-            Все
-          </FilterChip>
-          <FilterChip
-            active={duration === "short"}
-            disabled={loading}
-            onClick={() => setDuration(duration === "short" ? "all" : "short")}
-          >
-            {DURATION_BUCKET_LABELS.short}
-          </FilterChip>
-          <FilterChip
-            active={duration === "long"}
-            disabled={loading}
-            onClick={() => setDuration(duration === "long" ? "all" : "long")}
-          >
-            {DURATION_BUCKET_LABELS.long}
-          </FilterChip>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-sub">Сортировка по оплате</p>
-        <div className="flex flex-wrap gap-2">
-          <FilterChip active={paySort === "none"} disabled={loading} onClick={() => setPaySort("none")}>
-            По умолчанию
-          </FilterChip>
-          <FilterChip
-            active={paySort === "high"}
-            disabled={loading}
-            onClick={() => setPaySort(paySort === "high" ? "none" : "high")}
-          >
-            Сначала выше оплата
-          </FilterChip>
-          <FilterChip
-            active={paySort === "low"}
-            disabled={loading}
-            onClick={() => setPaySort(paySort === "low" ? "none" : "low")}
-          >
-            Сначала ниже оплата
-          </FilterChip>
-        </div>
-      </div>
+      <TeenTasksCatalogActiveChips chips={activeChips} />
 
       <p className="text-sm text-sub">
         {loading ? (
           <span className="text-sub-deep">Загружаем каталог…</span>
+        ) : tasks.length > 0 ? (
+          <>
+            Найдено:{" "}
+            <span className="font-medium text-ink">
+              {filtered.length} из {tasks.length}
+            </span>
+          </>
         ) : (
           <>
-            Найдено: <span className="font-medium text-sub">{filtered.length}</span> из {tasks.length}
+            Найдено: <span className="font-medium text-ink">0 задач</span>
           </>
         )}
       </p>
+
+      <TeenTaskFiltersDrawer
+        open={drawerOpen}
+        draft={drawerDraft}
+        setDraft={setDrawerDraft}
+        onApply={applyDrawer}
+        onResetAll={resetAllFromDrawer}
+        onClose={closeDrawer}
+        disabled={loading}
+        teenAge={teenAge}
+      />
 
       <AnimatePresence mode="wait">
         {loading ? (

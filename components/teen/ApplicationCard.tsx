@@ -3,6 +3,7 @@ import type { Application } from "@/types/application";
 import type { Task } from "@/types/task";
 import { APPLICATION_STATUS_HINTS } from "@/lib/constants";
 import { formatDate } from "@/lib/helpers";
+import { taskPaymentTeenPrimaryLine } from "@/lib/task-payment";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
 export function ApplicationCard({
@@ -40,8 +41,13 @@ export function ApplicationCard({
       ) : null}
       {task ? (
         <p className="mb-0 mt-2 text-xs text-sub-deep">
-          {task.employerName}
-          {task.payRub ? ` · ${new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 }).format(task.payRub)}` : null}
+          <Link
+            href={`/teen/employer/${task.employerId}`}
+            className="font-medium text-accent underline-offset-2 hover:text-accent-bright hover:underline"
+          >
+            {task.employerName}
+          </Link>
+          {` · ${taskPaymentTeenPrimaryLine(task)}`}
         </p>
       ) : null}
       {showWithdraw && onWithdraw ? (
@@ -54,7 +60,8 @@ export function ApplicationCard({
             Отозвать отклик
           </button>
           <p className="mt-1.5 m-0 text-xs text-sub-deep">
-            Пока статус «Отправлен» или «Ждём ответа», отклик можно снять. Дальше — только через работодателя.
+            Пока статус «Отправлен», «Ждём ответа» или «Отклонена», отклик можно снять из списка. В остальных
+            случаях — только через работодателя.
           </p>
         </div>
       ) : null}

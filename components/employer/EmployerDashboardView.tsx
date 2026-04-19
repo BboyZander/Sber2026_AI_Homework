@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { EmployerProfile } from "@/types/user";
 import type { Task } from "@/types/task";
@@ -9,6 +10,8 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { SectionTitle } from "@/components/shared/SectionTitle";
 import { StatCard } from "@/components/shared/StatCard";
 import { PublishedTaskCard } from "@/components/employer/PublishedTaskCard";
+import { resolveSessionEmployer } from "@/lib/employer-profile";
+import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-store";
 import {
   EMPLOYER_TASKS_EVENT,
   EMPLOYER_TASKS_EXTRA_KEY,
@@ -17,28 +20,45 @@ import {
 } from "@/lib/employer-flow";
 
 export function EmployerDashboardView({
-  employer,
+  employer: initialEmployer,
 }: {
   employer: EmployerProfile;
 }) {
   const reduceMotion = useReducedMotion();
+  const [employer, setEmployer] = useState(initialEmployer);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const refresh = useCallback(() => {
+
+  const refreshEmployer = useCallback(() => {
+    setEmployer(resolveSessionEmployer(initialEmployer));
+  }, [initialEmployer]);
+
+  const refreshTasks = useCallback(() => {
     setTasks(getEmployerTasks());
   }, []);
+
+  const refresh = useCallback(() => {
+    refreshEmployer();
+    refreshTasks();
+  }, [refreshEmployer, refreshTasks]);
 
   useEffect(() => {
     refresh();
     const onStorage = (e: StorageEvent) => {
-      if (e.key === EMPLOYER_TASKS_EXTRA_KEY) refresh();
+      if (e.key === EMPLOYER_TASKS_EXTRA_KEY) refreshTasks();
     };
+    function onProfile(e: Event) {
+      const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
+      if (d?.role === "employer" && d.userId === initialEmployer.id) refreshEmployer();
+    }
     window.addEventListener("storage", onStorage);
-    window.addEventListener(EMPLOYER_TASKS_EVENT, refresh);
+    window.addEventListener(EMPLOYER_TASKS_EVENT, refreshTasks);
+    window.addEventListener(PROFILE_UPDATED_EVENT, onProfile);
     return () => {
       window.removeEventListener("storage", onStorage);
-      window.removeEventListener(EMPLOYER_TASKS_EVENT, refresh);
+      window.removeEventListener(EMPLOYER_TASKS_EVENT, refreshTasks);
+      window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
     };
-  }, [refresh]);
+  }, [refresh, refreshEmployer, refreshTasks, initialEmployer.id]);
 
   const recent = useMemo(
     () =>
@@ -65,10 +85,16 @@ export function EmployerDashboardView({
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-sub">
           Публикуйте задачи и следите за статусами. Основное действие здесь — создать новую задачу.
         </p>
-        <div className="mt-5">
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <CTAButton href="/employer/tasks/new" className="w-full justify-center sm:w-auto">
             Создать задачу
           </CTAButton>
+          <Link
+            href="/employer/profile"
+            className="ui-btn-ghost w-full justify-center border border-edge px-4 py-2.5 text-center text-sm font-semibold no-underline hover:no-underline sm:w-auto"
+          >
+            Данные кабинета
+          </Link>
         </div>
       </motion.section>
 

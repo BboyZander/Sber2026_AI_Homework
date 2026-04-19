@@ -11,12 +11,26 @@ import {
 } from "@/lib/auth";
 import { ThemeSwitcher } from "@/components/shared/ThemeSwitcher";
 import { clearDemoPersistedState } from "@/lib/demo-state";
+import { getEmployerProfileMerged } from "@/lib/employer-profile";
 import { pushEmployerToast } from "@/lib/employer-flow";
+import { PROFILE_UPDATED_EVENT } from "@/lib/profile-store";
 import { pushTeenToast } from "@/lib/teen-flow";
+import { getTeenProfileMerged } from "@/lib/teen-profile";
 import { DEMO_COPY } from "@/lib/ui-copy";
+import type { EmployerProfile, TeenProfile } from "@/types/user";
 
 function labelForUser(user: NonNullable<ReturnType<typeof getDemoUserById>>): string {
-  return user.role === "employer" ? user.companyName : user.name;
+  const { login: _l, password: _p, ...rest } = user;
+  if (typeof window === "undefined") {
+    return user.role === "teen" ? user.name : user.companyName;
+  }
+  if (user.role === "teen") {
+    return getTeenProfileMerged(rest as TeenProfile).name;
+  }
+  if (user.role === "employer") {
+    return getEmployerProfileMerged(rest as EmployerProfile).companyName;
+  }
+  return rest.name;
 }
 
 export function Header({ title }: { title?: string }) {
@@ -24,11 +38,22 @@ export function Header({ title }: { title?: string }) {
   const pathname = usePathname();
   const [session, setSession] = useState<MockSession | null>(null);
   const [open, setOpen] = useState(false);
+  const [, setProfileRev] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setSession(getMockSession());
   }, [pathname]);
+
+  useEffect(() => {
+    function bumpProfileLabel() {
+      setProfileRev((n) => n + 1);
+    }
+    window.addEventListener(PROFILE_UPDATED_EVENT, bumpProfileLabel);
+    return () => {
+      window.removeEventListener(PROFILE_UPDATED_EVENT, bumpProfileLabel);
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -109,12 +134,12 @@ export function Header({ title }: { title?: string }) {
                 </Link>
               ) : (
                 <Link
-                  href="/employer/dashboard"
+                  href="/employer/profile"
                   role="menuitem"
                   className="block px-4 py-2.5 text-sm text-ink no-underline hover:bg-panel-muted/60 hover:no-underline focus-visible:bg-panel-muted/60 focus-visible:outline-none"
                   onClick={() => setOpen(false)}
                 >
-                  Кабинет
+                  Данные кабинета
                 </Link>
               )}
               <button
