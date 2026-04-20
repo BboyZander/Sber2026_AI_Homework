@@ -30,3 +30,24 @@ export function taskAcceptsTeenAge(task: Task, teenAge: number): boolean {
   }
   return teenAge >= minAge && teenAge <= maxAge;
 }
+
+/** Заданы ли в задаче оба порога возраста (тогда отклик без возраста в профиле недоступен). */
+export function taskHasDefinedAgeRange(task: Task): boolean {
+  const { minAge, maxAge } = task;
+  return (
+    typeof minAge === "number" &&
+    typeof maxAge === "number" &&
+    Number.isFinite(minAge) &&
+    Number.isFinite(maxAge)
+  );
+}
+
+/**
+ * Можно ли откликнуться с точки зрения возраста: без диапазона в задаче — да;
+ * с диапазоном — только при известном возрасте в пределах min–max.
+ */
+export function teenCanRespondByAge(task: Task, teenAge: number | undefined): boolean {
+  if (!taskHasDefinedAgeRange(task)) return true;
+  if (typeof teenAge !== "number" || !Number.isFinite(teenAge)) return false;
+  return taskAcceptsTeenAge(task, teenAge);
+}

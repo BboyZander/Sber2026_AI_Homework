@@ -1,4 +1,12 @@
-import type { DurationBucket, TaskCategory, TaskStatus, WorkFormat } from "@/lib/constants";
+import type {
+  DurationBucket,
+  EngagementType,
+  MinorComplianceStatus,
+  PhysicalLoadLevel,
+  TaskCategory,
+  TaskStatus,
+  WorkFormat,
+} from "@/lib/constants";
 
 export type TaskPaymentType = "fixed" | "hourly";
 
@@ -29,6 +37,17 @@ export interface Task {
   /** Возрастной диапазон для исполнителя (демо). */
   minAge?: number;
   maxAge?: number;
+  engagementType: EngagementType;
+  startDateTime: string;
+  durationHours: number;
+  weeklyHoursExpected: number;
+  duringSchoolPeriodAllowed: boolean;
+  duringVacationAllowed: boolean;
+  requiresMedicalExam: boolean;
+  physicalLoadLevel: PhysicalLoadLevel;
+  isOutdoor: boolean;
+  minorComplianceStatus: MinorComplianceStatus;
+  minorComplianceReasons: string[];
   deadline?: string;
   createdAt: string;
 }

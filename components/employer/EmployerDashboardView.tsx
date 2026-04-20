@@ -18,6 +18,7 @@ import {
   getEmployerTaskStats,
   getEmployerTasks,
 } from "@/lib/employer-flow";
+import { TEEN_APPLICATIONS_EVENT } from "@/lib/teen-flow";
 
 export function EmployerDashboardView({
   employer: initialEmployer,
@@ -52,10 +53,12 @@ export function EmployerDashboardView({
     }
     window.addEventListener("storage", onStorage);
     window.addEventListener(EMPLOYER_TASKS_EVENT, refreshTasks);
+    window.addEventListener(TEEN_APPLICATIONS_EVENT, refreshTasks);
     window.addEventListener(PROFILE_UPDATED_EVENT, onProfile);
     return () => {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener(EMPLOYER_TASKS_EVENT, refreshTasks);
+      window.removeEventListener(TEEN_APPLICATIONS_EVENT, refreshTasks);
       window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
     };
   }, [refresh, refreshEmployer, refreshTasks, initialEmployer.id]);
@@ -104,10 +107,12 @@ export function EmployerDashboardView({
         transition={{ duration: 0.35, delay: reduceMotion ? 0 : 0.05, ease: [0.22, 1, 0.36, 1] as const }}
       >
         <SectionTitle title="Сводка" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           <StatCard label="Всего задач" value={stats.total} />
-          <StatCard label="Опубликовано" value={stats.published} />
-          <StatCard label="Активные" value={stats.active} hint="в каталоге подростка" />
+          <StatCard label="Черновики" value={stats.draft} />
+          <StatCard label="Открытые" value={stats.open} hint="в каталоге подростка" />
+          <StatCard label="С откликом" value={stats.with_application} />
+          <StatCard label="В работе" value={stats.in_progress} />
           <StatCard label="Завершённые" value={stats.completed} />
         </div>
       </motion.section>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Task } from "@/types/task";
 import {
   CATEGORY_LABELS,
+  MINOR_COMPLIANCE_STATUS_LABELS,
   WORK_FORMAT_LABELS,
 } from "@/lib/constants";
 import { formatDate } from "@/lib/helpers";
@@ -56,6 +57,9 @@ export function TeenCatalogTaskCard({ task }: { task: Task }) {
           <MetaPill>⏱ {task.durationLabel}</MetaPill>
           <MetaPill tone="sky">{payPrimary}</MetaPill>
           <MetaPill>+{task.rewardXp} XP</MetaPill>
+          {task.minorComplianceStatus === "warning" ? (
+            <MetaPill tone="neutral">{MINOR_COMPLIANCE_STATUS_LABELS.warning}</MetaPill>
+          ) : null}
         </div>
         {payExtra ? (
           <p className="m-0 mt-2 text-xs font-medium text-sub-deep">{payExtra}</p>

@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { TeenTaskDetailView } from "@/components/teen/TeenTaskDetailView";
 import { employerSnippet } from "@/data/employer-snippets";
 import { EMPLOYER_TASKS_EVENT, EMPLOYER_TASKS_EXTRA_KEY, getTaskByIdForFlow } from "@/lib/employer-flow";
+import { getApplications, getCurrentTeenId, TEEN_APPLICATIONS_EVENT } from "@/lib/teen-flow";
 import type { Task } from "@/types/task";
 
 export function TeenTaskDetailPageView({ taskId }: { taskId: string }) {
@@ -13,7 +14,9 @@ export function TeenTaskDetailPageView({ taskId }: { taskId: string }) {
 
   const refresh = useCallback(() => {
     const t = getTaskByIdForFlow(taskId);
-    setTask(t && t.status === "published" ? t : null);
+    const teenId = getCurrentTeenId();
+    const hasOwnApplication = getApplications(teenId).some((a) => a.taskId === taskId);
+    setTask(t && (t.status === "open" || hasOwnApplication) ? t : null);
   }, [taskId]);
 
   useEffect(() => {
@@ -23,9 +26,11 @@ export function TeenTaskDetailPageView({ taskId }: { taskId: string }) {
     };
     window.addEventListener("storage", onStorage);
     window.addEventListener(EMPLOYER_TASKS_EVENT, refresh);
+    window.addEventListener(TEEN_APPLICATIONS_EVENT, refresh);
     return () => {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener(EMPLOYER_TASKS_EVENT, refresh);
+      window.removeEventListener(TEEN_APPLICATIONS_EVENT, refresh);
     };
   }, [refresh]);
 

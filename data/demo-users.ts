@@ -18,7 +18,7 @@ export const demoUsers: DemoAccount[] = [
     city: "Москва",
     level: 2,
     xp: 140,
-    completedTasksCount: 1,
+    completedTasksCount: 3,
     interests: ["digital", "events", "part-time"],
     preferredTaskFormat: "any",
   },

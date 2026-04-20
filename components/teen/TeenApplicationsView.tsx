@@ -102,7 +102,7 @@ export function TeenApplicationsView() {
   }
 
   function handleMarkCompleted(app: (typeof list)[number]) {
-    const ok = updateApplicationStatus(app.id, "completed");
+    const ok = updateApplicationStatus(app.id, "submitted");
     refresh();
     if (ok) pushTeenToast(TEEN_TOASTS.markedCompleted);
   }
@@ -204,7 +204,7 @@ export function TeenApplicationsView() {
                       showWithdraw={canWithdrawApplication(app)}
                       onWithdraw={() => handleWithdraw(app)}
                     />
-                    {app.status === "in_progress" ? (
+                    {app.status === "accepted" ? (
                       <button
                         type="button"
                         onClick={() => handleMarkCompleted(app)}

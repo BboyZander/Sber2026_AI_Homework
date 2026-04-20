@@ -70,7 +70,7 @@ export function applyToTask(taskId: string): { added: boolean } {
   return { added };
 }
 
-/** Отозвать отклик (sent / awaiting / rejected), синхронизация через TEEN_APPLICATIONS_EVENT. */
+/** Отозвать отклик (applied / rejected), синхронизация через TEEN_APPLICATIONS_EVENT. */
 export function withdrawApplication(app: Application, teenId?: string): void {
   withdrawTeenApplication(teenId ?? getCurrentTeenId(), app);
 }

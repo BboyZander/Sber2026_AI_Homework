@@ -24,7 +24,8 @@ export type TeenCatalogFilterInput = {
 /** Та же логика, что раньше в useMemo каталога подростка. */
 export function filterTeenCatalogTasks(tasks: Task[], f: TeenCatalogFilterInput): Task[] {
   const q = f.query.trim().toLowerCase();
-  let list = tasks.filter((t) => {
+  let list = tasks;
+  list = list.filter((t) => {
     if (!q) return true;
     return (
       t.title.toLowerCase().includes(q) ||
@@ -38,12 +39,14 @@ export function filterTeenCatalogTasks(tasks: Task[], f: TeenCatalogFilterInput)
   if (f.duration !== "all") list = list.filter((t) => t.durationBucket === f.duration);
   if (f.ageFitMode === "mine" && typeof f.teenAge === "number") {
     const ta = f.teenAge;
-    list = list.filter((t) => taskAcceptsTeenAge(t, ta));
+    list = list.filter(
+      (t) => taskAcceptsTeenAge(t, ta) && t.minorComplianceStatus !== "blocked",
+    );
   }
-    if (f.paySort === "high") {
-      list = [...list].sort((a, b) => taskComparablePayRub(b) - taskComparablePayRub(a));
-    } else if (f.paySort === "low") {
-      list = [...list].sort((a, b) => taskComparablePayRub(a) - taskComparablePayRub(b));
-    }
+  if (f.paySort === "high") {
+    list = [...list].sort((a, b) => taskComparablePayRub(b) - taskComparablePayRub(a));
+  } else if (f.paySort === "low") {
+    list = [...list].sort((a, b) => taskComparablePayRub(a) - taskComparablePayRub(b));
+  }
   return list;
 }

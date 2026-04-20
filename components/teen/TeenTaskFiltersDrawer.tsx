@@ -34,15 +34,18 @@ function Chip({
   children,
   onClick,
   disabled,
+  title,
 }: {
   active: boolean;
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
+      title={title}
       onClick={onClick}
       disabled={disabled}
       className={`touch-manipulation rounded-full border px-3 py-1.5 text-xs font-medium transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 sm:text-[0.8125rem] ${
@@ -159,7 +162,12 @@ export function TeenTaskFiltersDrawer({
                 </Chip>
                 <Chip
                   active={draft.ageFitMode === "mine"}
-                  disabled={disabled}
+                  disabled={disabled || teenAge === undefined}
+                  title={
+                    teenAge === undefined
+                      ? "Сначала укажите возраст в профиле"
+                      : undefined
+                  }
                   onClick={() =>
                     setDraft((d) => ({ ...d, ageFitMode: d.ageFitMode === "mine" ? "all" : "mine" }))
                   }

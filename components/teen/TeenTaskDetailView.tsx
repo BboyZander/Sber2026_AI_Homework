@@ -1,23 +1,32 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Task } from "@/types/task";
-import { CATEGORY_LABELS, DURATION_BUCKET_LABELS, WORK_FORMAT_LABELS } from "@/lib/constants";
+import {
+  CATEGORY_LABELS,
+  DURATION_BUCKET_LABELS,
+  MINOR_COMPLIANCE_STATUS_LABELS,
+  WORK_FORMAT_LABELS,
+} from "@/lib/constants";
 import {
   TEEN_APPLICATIONS_EVENT,
+  TEEN_FLOW_TOAST_EVENT,
   applyToTask,
   canWithdrawApplication,
   getApplications,
   getCurrentTeenId,
   withdrawApplication,
+  type TeenFlowToastDetail,
 } from "@/lib/teen-flow";
 import { formatDate } from "@/lib/helpers";
-import { formatTaskAgeRange } from "@/lib/task-age";
+import { currentMinorPeriod, getMinorComplianceResult } from "@/lib/minor-compliance";
+import { getTeenProfile, PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-store";
+import { formatTaskAgeRange, taskHasDefinedAgeRange, teenCanRespondByAge } from "@/lib/task-age";
 import { taskPaymentTeenEstimatedTotalLine, taskPaymentTeenPrimaryLine } from "@/lib/task-payment";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { TEEN_CONFIRM } from "@/lib/ui-copy";
+import { TEEN_CONFIRM, TEEN_TOASTS } from "@/lib/ui-copy";
 
 export function TeenTaskDetailView({
   task,
@@ -30,6 +39,59 @@ export function TeenTaskDetailView({
   const [applied, setApplied] = useState(false);
   const [applyBusy, setApplyBusy] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [teenAge, setTeenAge] = useState<number | undefined>(() => {
+    const a = getTeenProfile().age;
+    return typeof a === "number" && Number.isFinite(a) ? a : undefined;
+  });
+
+  const liveCompliance = useMemo(
+    () =>
+      getMinorComplianceResult(
+        {
+          minAge: task.minAge,
+          maxAge: task.maxAge,
+          engagementType: task.engagementType,
+          startDateTime: task.startDateTime,
+          durationHours: task.durationHours,
+          duringSchoolPeriodAllowed: task.duringSchoolPeriodAllowed,
+          duringVacationAllowed: task.duringVacationAllowed,
+          requiresMedicalExam: task.requiresMedicalExam,
+          physicalLoadLevel: task.physicalLoadLevel,
+          isOutdoor: task.isOutdoor,
+        },
+        currentMinorPeriod(),
+      ),
+    [
+      task.minAge,
+      task.maxAge,
+      task.engagementType,
+      task.startDateTime,
+      task.durationHours,
+      task.duringSchoolPeriodAllowed,
+      task.duringVacationAllowed,
+      task.requiresMedicalExam,
+      task.physicalLoadLevel,
+      task.isOutdoor,
+    ],
+  );
+
+  const complianceBlocked =
+    task.minorComplianceStatus === "blocked" || liveCompliance.status === "blocked";
+  const ageOk = teenCanRespondByAge(task, teenAge);
+  const applyAllowed = ageOk && !complianceBlocked;
+
+  useEffect(() => {
+    function syncAge() {
+      const a = getTeenProfile().age;
+      setTeenAge(typeof a === "number" && Number.isFinite(a) ? a : undefined);
+    }
+    function onProfile(e: Event) {
+      const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
+      if (d?.role === "teen") syncAge();
+    }
+    window.addEventListener(PROFILE_UPDATED_EVENT, onProfile);
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
+  }, []);
 
   const syncApplied = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -46,6 +108,22 @@ export function TeenTaskDetailView({
 
   function handleApply() {
     if (applied || applyBusy) return;
+    if (!ageOk) {
+      window.dispatchEvent(
+        new CustomEvent<TeenFlowToastDetail>(TEEN_FLOW_TOAST_EVENT, {
+          detail: { message: TEEN_TOASTS.applyBlockedAge },
+        }),
+      );
+      return;
+    }
+    if (complianceBlocked) {
+      window.dispatchEvent(
+        new CustomEvent<TeenFlowToastDetail>(TEEN_FLOW_TOAST_EVENT, {
+          detail: { message: TEEN_TOASTS.applyBlockedCompliance },
+        }),
+      );
+      return;
+    }
     setApplyBusy(true);
     window.setTimeout(() => {
       const { added } = applyToTask(task.id);
@@ -73,8 +151,44 @@ export function TeenTaskDetailView({
     syncApplied();
   }
 
-  const ctaLabel = applied ? "Отклик отправлен" : applyBusy ? "Отправляем…" : "Откликнуться";
-  const ctaDisabled = applied || applyBusy;
+  const ctaLabel = applied
+    ? "Отклик отправлен"
+    : applyBusy
+      ? "Отправляем…"
+      : complianceBlocked
+        ? "Недоступно по правилам"
+        : !ageOk
+          ? taskHasDefinedAgeRange(task) && typeof teenAge !== "number"
+            ? "Укажите возраст в профиле"
+            : "Не подходит по возрасту"
+          : "Откликнуться";
+  const ctaDisabled = applied || applyBusy || !applyAllowed;
+
+  const applyBlockedHint = (() => {
+    if (applied || applyBusy) return null;
+    if (complianceBlocked) {
+      const reasons =
+        task.minorComplianceStatus === "blocked" && task.minorComplianceReasons.length > 0
+          ? task.minorComplianceReasons
+          : liveCompliance.reasons;
+      return reasons.length > 0 ? reasons[0] : TEEN_TOASTS.applyBlockedCompliance;
+    }
+    if (!ageOk) {
+      if (taskHasDefinedAgeRange(task) && typeof teenAge !== "number") {
+        return (
+          <>
+            Чтобы откликнуться, укажи возраст в{" "}
+            <Link href="/teen/profile" className="font-medium text-accent underline-offset-2 hover:underline">
+              профиле
+            </Link>
+            .
+          </>
+        );
+      }
+      return "Твой возраст из профиля не входит в диапазон этой задачи.";
+    }
+    return null;
+  })();
 
   const ageRangeLabel = formatTaskAgeRange(task);
 
@@ -123,6 +237,9 @@ export function TeenTaskDetailView({
 
         <div className="mt-6 hidden space-y-3 lg:block">
           <ApplyButton />
+          {applyBlockedHint ? (
+            <p className="m-0 text-center text-xs leading-relaxed text-sub">{applyBlockedHint}</p>
+          ) : null}
           {applied && canWithdraw ? (
             <button
               type="button"
@@ -143,6 +260,7 @@ export function TeenTaskDetailView({
         type="button"
         disabled={ctaDisabled}
         onClick={handleApply}
+        title={typeof applyBlockedHint === "string" ? applyBlockedHint : undefined}
         whileTap={reduceMotion || ctaDisabled ? undefined : { scale: 0.98 }}
         className={`rounded-xl bg-gradient-to-r from-accent to-accent-dark py-3.5 text-sm font-semibold text-white shadow-lg shadow-accent/25 transition duration-200 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bright/70 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:opacity-80 disabled:hover:brightness-100 ${
           fullWidth ? "w-full" : ""
@@ -249,44 +367,21 @@ export function TeenTaskDetailView({
               </p>
             </section>
 
-            <AnimatePresence>
-              {mounted && applied ? (
-                <motion.div
-                  initial={reduceMotion ? false : { opacity: 0, scale: 0.96, y: 6 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                  className="flex items-start gap-3 rounded-xl border border-accent/35 bg-accent-soft px-4 py-3"
-                >
-                  <span className="text-xl" aria-hidden>
-                    ✓
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="m-0 text-sm font-semibold text-accent-bright">Отклик отправлен</p>
-                    <p className="mt-1 m-0 text-xs text-sub">
-                      В полной версии работодатель увидит его в кабинете. Статус смотри в{" "}
-                      <Link href="/teen/applications" className="font-medium text-accent hover:underline">
-                        Откликах
-                      </Link>
-                      .
-                    </p>
-                    {canWithdraw ? (
-                      <button
-                        type="button"
-                        onClick={handleWithdraw}
-                        className="mt-2 text-xs font-medium text-rose-300/90 underline-offset-2 transition hover:text-rose-200 hover:underline"
-                      >
-                        Отозвать отклик
-                      </button>
-                    ) : null}
-                  </div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-
-            <p className="m-0 text-xs text-sub-deep">
-              В демо суммы и сроки примерные. Итоговые условия — после связи с заказчиком.
-            </p>
+            {task.minorComplianceStatus !== "passed" ? (
+              <section className="ui-card border-edge">
+                <h2 className="m-0 text-sm font-semibold uppercase tracking-wider text-sub">Ограничения 14–17</h2>
+                <p className="m-0 mt-2 text-sm text-ink">
+                  Статус: {MINOR_COMPLIANCE_STATUS_LABELS[task.minorComplianceStatus]}
+                </p>
+                {task.minorComplianceReasons.length > 0 ? (
+                  <ul className="m-0 mt-2 list-disc pl-5 text-sm text-sub">
+                    {task.minorComplianceReasons.map((reason) => (
+                      <li key={reason}>{reason}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </section>
+            ) : null}
           </div>
 
           <aside className="mt-10 hidden lg:mt-0 lg:block">
@@ -307,6 +402,9 @@ export function TeenTaskDetailView({
       >
         <div className="flex flex-col gap-2">
           <ApplyButton />
+          {applyBlockedHint ? (
+            <p className="m-0 text-center text-xs leading-relaxed text-sub">{applyBlockedHint}</p>
+          ) : null}
           {applied && canWithdraw ? (
             <button
               type="button"

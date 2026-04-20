@@ -5,7 +5,7 @@ import { taskComparablePayRub } from "@/lib/task-payment";
 export function computeTeenActivityStats(apps: Application[]) {
   const applicationsCount = apps.length;
   const completedTasksCount = apps.filter(
-    (a) => a.status === "completed" || a.status === "paid",
+    (a) => a.status === "submitted" || a.status === "paid",
   ).length;
   let earnedDemoRub = 0;
   let earnedDemoXp = 0;

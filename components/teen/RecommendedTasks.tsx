@@ -4,7 +4,7 @@ import { TaskCard } from "@/components/shared/TaskCard";
 import { SectionTitle } from "@/components/shared/SectionTitle";
 
 export function RecommendedTasks() {
-  const published = demoTasks.filter((t) => t.status === "published").slice(0, 3);
+  const published = demoTasks.filter((t) => t.status === "open").slice(0, 3);
 
   return (
     <section>

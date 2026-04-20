@@ -8,9 +8,11 @@ import { SectionTitle } from "@/components/shared/SectionTitle";
 import { RecommendedTasks } from "@/components/teen/RecommendedTasks";
 import { XPProgress } from "@/components/teen/XPProgress";
 import { formatRub, formatXp } from "@/lib/helpers";
+import { toDashboardDisplayStats, type TeenDashboardDisplayStats } from "@/data/teen-dashboard";
+import { computeTeenActivityStats } from "@/lib/teen-activity-stats";
 import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-store";
 import { resolveSessionTeen } from "@/lib/teen-profile";
-import { TEEN_APPLICATIONS_EVENT, getApplicationStats, getApplications } from "@/lib/teen-flow";
+import { TEEN_APPLICATIONS_EVENT, getApplications } from "@/lib/teen-flow";
 import type { TeenProfile } from "@/types/user";
 
 const section = {
@@ -45,13 +47,13 @@ const quickActions = [
 
 function nextStepForTeen(teenId: string): { title: string; body: string; href: string; cta: string } {
   const apps = getApplications(teenId);
-  const waiting = apps.some((a) => a.status === "awaiting" || a.status === "sent");
-  const inProgress = apps.some((a) => a.status === "in_progress");
+  const waiting = apps.some((a) => a.status === "applied");
+  const inProgress = apps.some((a) => a.status === "accepted");
 
   if (waiting) {
     return {
-      title: "Дальше: жди ответа",
-      body: "Есть отклик со статусом «Отправлен» или «Ждём ответа». Загляни в «Отклики», чтобы не пропустить ответ.",
+      title: "Ожидай ответа",
+      body: "Есть отклик со статусом «Отклик отправлен». Загляни в «Отклики», чтобы не пропустить ответ.",
       href: "/teen/applications",
       cta: "К откликам",
     };
@@ -59,7 +61,7 @@ function nextStepForTeen(teenId: string): { title: string; body: string; href: s
   if (inProgress) {
     return {
       title: "Дальше: задача в работе",
-      body: "Отклик в статусе «В работе». Уточни детали у организатора и следи за статусом в «Откликах».",
+      body: "Отклик в статусе «Ты в работе». Уточни детали у организатора и следи за статусом в «Откликах».",
       href: "/teen/applications",
       cta: "Открыть отклики",
     };
@@ -77,42 +79,31 @@ export function TeenDashboardContent({
   stats,
 }: {
   teen: TeenProfile;
-  stats: {
-    level: number;
-    xp: number;
-    applicationsCount: number;
-    completedTasksCount: number;
-    nextLevelXp: number;
-  };
+  stats: TeenDashboardDisplayStats;
 }) {
   const reduceMotion = useReducedMotion();
   const [teen, setTeen] = useState(initialTeen);
-  const [mergedAppCount, setMergedAppCount] = useState(stats.applicationsCount);
-  const [walletRub, setWalletRub] = useState(0);
+  const [displayStats, setDisplayStats] = useState<TeenDashboardDisplayStats>(stats);
 
-  const refreshTeen = useCallback(() => {
-    setTeen(resolveSessionTeen(initialTeen));
+  const refreshTeenAndStats = useCallback(() => {
+    const t = resolveSessionTeen(initialTeen);
+    setTeen(t);
+    setDisplayStats(toDashboardDisplayStats(t, computeTeenActivityStats(getApplications(t.id))));
   }, [initialTeen]);
 
   useEffect(() => {
-    refreshTeen();
+    refreshTeenAndStats();
     function onProfile(e: Event) {
       const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
-      if (d?.role === "teen" && d.userId === initialTeen.id) refreshTeen();
+      if (d?.role === "teen" && d.userId === initialTeen.id) refreshTeenAndStats();
     }
     window.addEventListener(PROFILE_UPDATED_EVENT, onProfile);
-    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
-  }, [refreshTeen, initialTeen.id]);
-
-  useEffect(() => {
-    function refresh() {
-      setMergedAppCount(getApplications(teen.id).length);
-      setWalletRub(getApplicationStats(teen.id).earnedDemoRub);
-    }
-    refresh();
-    window.addEventListener(TEEN_APPLICATIONS_EVENT, refresh);
-    return () => window.removeEventListener(TEEN_APPLICATIONS_EVENT, refresh);
-  }, [teen.id]);
+    window.addEventListener(TEEN_APPLICATIONS_EVENT, refreshTeenAndStats);
+    return () => {
+      window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
+      window.removeEventListener(TEEN_APPLICATIONS_EVENT, refreshTeenAndStats);
+    };
+  }, [refreshTeenAndStats, initialTeen.id]);
 
   const next = nextStepForTeen(teen.id);
   const baseDelay = reduceMotion ? 0 : 0.05;
@@ -147,20 +138,20 @@ export function TeenDashboardContent({
         animate="visible"
       >
         {[
-          { label: "Уровень", value: stats.level, hint: `Следующий: ${stats.level + 1}` },
-          { label: "Опыт", value: formatXp(stats.xp), hint: "всего XP" },
-          { label: "Отклики", value: mergedAppCount, hint: "все статусы" },
-          { label: "Завершено", value: stats.completedTasksCount, hint: "в демо-сценарии" },
-          { label: "Кошелёк", value: formatRub(walletRub), hint: "начислено в демо" },
+          { label: "Уровень", value: displayStats.level },
+          { label: "Опыт", value: `${formatXp(displayStats.xp)} XP` },
+          { label: "Мои отклики", value: displayStats.applicationsCount },
+          { label: "Завершено", value: displayStats.completedTasksCount },
+          { label: "Кошелёк", value: formatRub(displayStats.earnedDemoRub) },
         ].map((item) => (
           <motion.div key={item.label} variants={section}>
-            <StatCard label={item.label} value={item.value} hint={item.hint} />
+            <StatCard label={item.label} value={item.value} />
           </motion.div>
         ))}
       </motion.div>
 
       <motion.div variants={section} initial="hidden" animate="visible" transition={{ delay: baseDelay + 0.2 }}>
-        <XPProgress currentXp={stats.xp} nextLevelXp={stats.nextLevelXp} />
+        <XPProgress currentXp={displayStats.xp} nextLevelXp={displayStats.nextLevelXp} />
       </motion.div>
 
       <motion.section

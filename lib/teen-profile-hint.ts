@@ -11,8 +11,8 @@ export type ProfileHint = {
 /** Демо-подсказка «как AI»: правила по активности, без внешнего API. */
 export function buildTeenProfileHint(apps: Application[]): ProfileHint {
   const n = apps.length;
-  const inProgress = apps.some((a) => a.status === "in_progress");
-  const waiting = apps.some((a) => a.status === "sent" || a.status === "awaiting");
+  const inProgress = apps.some((a) => a.status === "accepted");
+  const waiting = apps.some((a) => a.status === "applied");
   const paid = apps.filter((a) => a.status === "paid").length;
 
   if (n === 0) {
@@ -29,7 +29,7 @@ export function buildTeenProfileHint(apps: Application[]): ProfileHint {
     return {
       eyebrow: "Совет",
       title: "Задача в работе — держи связь",
-      body: "Уточни детали у организатора и зафиксируй сроки. Когда закончишь, отметь выполнение в «Откликах» — потом статус станет «Выполнено», затем «Оплачено».",
+      body: "Уточни детали у организатора и зафиксируй сроки. Когда закончишь, отметь выполнение в «Откликах» — статус станет «Ждёт подтверждения», затем «Оплачено».",
       href: "/teen/applications",
       cta: "К откликам",
     };

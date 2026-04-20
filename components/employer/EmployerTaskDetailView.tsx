@@ -6,16 +6,16 @@ import { CTAButton } from "@/components/shared/CTAButton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CATEGORY_LABELS, TASK_STATUS_LABELS, WORK_FORMAT_LABELS } from "@/lib/constants";
-import { DEMO_COPY, EMPLOYER_CONFIRM, EMPLOYER_TOASTS } from "@/lib/ui-copy";
+import { EMPLOYER_CONFIRM, EMPLOYER_TOASTS } from "@/lib/ui-copy";
 import { getDemoUserById } from "@/lib/auth";
 import {
   canMutateTask,
-  editTask,
   EMPLOYER_TASKS_EVENT,
   EMPLOYER_TASKS_EXTRA_KEY,
   getTaskByIdForFlow,
   pushEmployerToast,
   removeTask,
+  setTaskStatusForFlow,
   toggleTaskClosed,
 } from "@/lib/employer-flow";
 import {
@@ -24,44 +24,17 @@ import {
   updateApplicationStatus,
 } from "@/lib/teen-flow";
 import { formatDate } from "@/lib/helpers";
-import type { Task, TaskPaymentType } from "@/types/task";
+import type { Task } from "@/types/task";
 import { taskPaymentEmployerSummary, taskPaymentTeenEstimatedTotalLine } from "@/lib/task-payment";
 import type { Application } from "@/types/application";
 
 export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
   const [task, setTask] = useState<Task | null>(null);
   const [apps, setApps] = useState<Application[]>([]);
-  const [editMode, setEditMode] = useState(false);
-  const [draft, setDraft] = useState({
-    title: "",
-    description: "",
-    paymentType: "fixed" as TaskPaymentType,
-    fixedPayRub: "",
-    hourlyRate: "",
-    estimatedHours: "",
-    location: "",
-    durationLabel: "",
-    deadline: "",
-  });
-
   const refresh = useCallback(() => {
     const t = getTaskByIdForFlow(taskId);
     setTask(t);
     setApps(getApplicationsForTask(taskId));
-    if (t) {
-      const pt = t.paymentType ?? "fixed";
-      setDraft({
-        title: t.title,
-        description: t.description,
-        paymentType: pt,
-        fixedPayRub: pt === "fixed" ? String(t.paymentAmount) : "",
-        hourlyRate: pt === "hourly" ? String(t.paymentAmount) : "",
-        estimatedHours: pt === "hourly" && t.estimatedHours != null ? String(t.estimatedHours) : "",
-        location: t.location ?? "",
-        durationLabel: t.durationLabel,
-        deadline: t.deadline ? new Date(t.deadline).toISOString().slice(0, 16) : "",
-      });
-    }
   }, [taskId]);
 
   useEffect(() => {
@@ -87,30 +60,6 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
     return "14–17 лет";
   }, [task]);
 
-  function saveEdits() {
-    if (!task) return;
-    const pt = draft.paymentType;
-    const paymentAmount =
-      pt === "fixed" ? Number(draft.fixedPayRub || 0) : Number(draft.hourlyRate || 0);
-    const estimatedHours =
-      pt === "hourly" ? Number(String(draft.estimatedHours).replace(",", ".")) : undefined;
-    const updated = editTask(task.id, {
-      title: draft.title.trim(),
-      description: draft.description.trim(),
-      paymentType: pt,
-      paymentAmount,
-      estimatedHours: pt === "hourly" ? estimatedHours : undefined,
-      payRub: 0,
-      location: draft.location.trim(),
-      durationLabel: draft.durationLabel.trim(),
-      deadline: draft.deadline ? new Date(draft.deadline).toISOString() : undefined,
-    });
-    if (updated) {
-      setEditMode(false);
-      refresh();
-    }
-  }
-
   function handleDelete() {
     if (!task) return;
     if (!window.confirm(EMPLOYER_CONFIRM.deleteTask)) return;
@@ -124,26 +73,42 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
     if (updated) refresh();
   }
 
+  function handleRepeatTask() {
+    if (!task) return;
+    window.location.href = `/employer/tasks/new?repeatFrom=${encodeURIComponent(task.id)}`;
+  }
+
   function advanceApplication(app: Application) {
     if (app.status === "rejected") return;
     const next =
-      app.status === "sent" || app.status === "awaiting"
-        ? "in_progress"
-        : app.status === "completed"
+      app.status === "applied"
+        ? "accepted"
+        : app.status === "submitted"
           ? "paid"
           : null;
     if (!next) return;
     const ok = updateApplicationStatus(app.id, next);
+    if (ok && next === "accepted") {
+      setTaskStatusForFlow(app.taskId, "in_progress");
+      for (const other of apps) {
+        if (other.id === app.id) continue;
+        if (other.taskId !== app.taskId) continue;
+        if (other.status === "applied") updateApplicationStatus(other.id, "rejected");
+      }
+    }
+    if (ok && next === "paid") {
+      setTaskStatusForFlow(app.taskId, "completed");
+    }
     refresh();
     if (ok) {
-      if (next === "in_progress") pushEmployerToast(EMPLOYER_TOASTS.applicationInProgress);
+      if (next === "accepted") pushEmployerToast(EMPLOYER_TOASTS.applicationInProgress);
       if (next === "paid") pushEmployerToast(EMPLOYER_TOASTS.applicationPaid);
     }
   }
 
   function rejectApplication(app: Application) {
     if (app.status === "rejected") return;
-    if (!(app.status === "sent" || app.status === "awaiting")) return;
+    if (app.status !== "applied") return;
     if (!window.confirm(EMPLOYER_CONFIRM.rejectApplication)) return;
     const ok = updateApplicationStatus(app.id, "rejected");
     refresh();
@@ -177,28 +142,11 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-2">
               <p className="m-0 text-xs font-semibold uppercase tracking-wider text-sub">Карточка задачи</p>
-              {editMode ? (
-                <input
-                  value={draft.title}
-                  onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-                  className="w-full rounded-xl border border-edge bg-panel px-3 py-2 text-xl font-semibold leading-tight text-ink outline-none ring-accent/35 focus:border-accent/45 focus:ring-2"
-                />
-              ) : (
-                <h1 className="m-0 text-2xl font-semibold leading-tight text-ink">{task.title}</h1>
-              )}
+              <h1 className="m-0 text-2xl font-semibold leading-tight text-ink">{task.title}</h1>
             </div>
             <StatusBadge kind="task" status={task.status} />
           </div>
-          {editMode ? (
-            <textarea
-              value={draft.description}
-              onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
-              rows={5}
-              className="mt-4 w-full rounded-xl border border-edge bg-panel px-3 py-2 text-sm leading-relaxed text-ink outline-none ring-accent/35 focus:border-accent/45 focus:ring-2"
-            />
-          ) : (
-            <p className="mt-4 m-0 text-sm leading-relaxed text-sub">{task.description}</p>
-          )}
+          <p className="mt-4 m-0 text-sm leading-relaxed text-sub">{task.description}</p>
         </section>
 
         <section className="ui-card">
@@ -214,95 +162,21 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
             </div>
             <div className="rounded-xl border border-edge bg-panel px-3 py-2">
               <dt className="text-xs text-sub">Локация</dt>
-              <dd className="m-0 mt-1 text-sm font-medium text-ink">
-                {editMode ? (
-                  <input
-                    value={draft.location}
-                    onChange={(e) => setDraft((d) => ({ ...d, location: e.target.value }))}
-                    className="w-full rounded-lg border border-edge bg-panel px-2 py-1 text-sm text-ink outline-none ring-accent/35 focus:border-accent/45 focus:ring-2"
-                  />
-                ) : (
-                  task.location ?? "Не указана"
-                )}
-              </dd>
+              <dd className="m-0 mt-1 text-sm font-medium text-ink">{task.location ?? "Не указана"}</dd>
             </div>
             <div className="rounded-xl border border-edge bg-panel px-3 py-2">
               <dt className="text-xs text-sub">Длительность</dt>
-              <dd className="m-0 mt-1 text-sm font-medium text-ink">
-                {editMode ? (
-                  <input
-                    value={draft.durationLabel}
-                    onChange={(e) => setDraft((d) => ({ ...d, durationLabel: e.target.value }))}
-                    className="w-full rounded-lg border border-edge bg-panel px-2 py-1 text-sm text-ink outline-none ring-accent/35 focus:border-accent/45 focus:ring-2"
-                  />
-                ) : (
-                  task.durationLabel
-                )}
-              </dd>
+              <dd className="m-0 mt-1 text-sm font-medium text-ink">{task.durationLabel}</dd>
             </div>
             <div className="rounded-xl border border-edge bg-panel px-3 py-2 sm:col-span-2">
               <dt className="text-xs text-sub">Оплата</dt>
               <dd className="m-0 mt-1 text-sm font-medium text-ink">
-                {editMode && canMutate ? (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {(
-                        [
-                          { id: "fixed" as const, label: "Фикс" },
-                          { id: "hourly" as const, label: "Почасовая" },
-                        ] as const
-                      ).map((opt) => (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => setDraft((d) => ({ ...d, paymentType: opt.id }))}
-                          className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                            draft.paymentType === opt.id
-                              ? "border-accent/50 bg-accent/15 text-ink"
-                              : "border-edge text-sub hover:border-edge-strong"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                    {draft.paymentType === "fixed" ? (
-                      <input
-                        type="number"
-                        min={300}
-                        value={draft.fixedPayRub}
-                        onChange={(e) => setDraft((d) => ({ ...d, fixedPayRub: e.target.value }))}
-                        className="w-full max-w-xs rounded-lg border border-edge bg-panel px-2 py-1 text-sm text-ink outline-none ring-accent/35 focus:border-accent/45 focus:ring-2"
-                      />
-                    ) : (
-                      <div className="flex max-w-md flex-wrap gap-2">
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          placeholder="₽/ч"
-                          value={draft.hourlyRate}
-                          onChange={(e) => setDraft((d) => ({ ...d, hourlyRate: e.target.value }))}
-                          className="min-w-[6rem] flex-1 rounded-lg border border-edge bg-panel px-2 py-1 text-sm text-ink outline-none ring-accent/35 focus:border-accent/45 focus:ring-2"
-                        />
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          placeholder="ч"
-                          value={draft.estimatedHours}
-                          onChange={(e) => setDraft((d) => ({ ...d, estimatedHours: e.target.value }))}
-                          className="min-w-[5rem] flex-1 rounded-lg border border-edge bg-panel px-2 py-1 text-sm text-ink outline-none ring-accent/35 focus:border-accent/45 focus:ring-2"
-                        />
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <span>{taskPaymentEmployerSummary(task)}</span>
-                    {taskPaymentTeenEstimatedTotalLine(task) ? (
-                      <p className="m-0 text-xs font-normal text-sub">{taskPaymentTeenEstimatedTotalLine(task)}</p>
-                    ) : null}
-                  </div>
-                )}
+                <div className="space-y-1">
+                  <span>{taskPaymentEmployerSummary(task)}</span>
+                  {taskPaymentTeenEstimatedTotalLine(task) ? (
+                    <p className="m-0 text-xs font-normal text-sub">{taskPaymentTeenEstimatedTotalLine(task)}</p>
+                  ) : null}
+                </div>
               </dd>
             </div>
             <div className="rounded-xl border border-edge bg-panel px-3 py-2">
@@ -314,9 +188,6 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
 
         <section className="ui-card">
           <h2 className="m-0 text-base font-semibold text-ink">Отклики</h2>
-          {apps.length > 0 ? (
-            <p className="mt-1.5 m-0 text-xs leading-relaxed text-sub-deep">{DEMO_COPY.employerTaskStatusHint}</p>
-          ) : null}
           {apps.length === 0 ? (
             <div
               className="mt-4 rounded-xl border border-dashed border-edge-strong bg-panel-muted/50 px-4 py-8 text-center"
@@ -335,8 +206,8 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
               {apps.map((app) => {
                 const user = getDemoUserById(app.teenId);
                 const name = user && user.role === "teen" ? user.name : app.teenId;
-                const canRespond = app.status === "sent" || app.status === "awaiting";
-                const canPay = app.status === "completed";
+                const canRespond = app.status === "applied";
+                const canPay = app.status === "submitted";
                 return (
                   <li
                     key={app.id}
@@ -411,39 +282,30 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
           <div className="ui-card border-edge">
             <p className="m-0 text-xs font-semibold uppercase tracking-wider text-sub">Действия</p>
             <div className="mt-3 flex flex-col gap-2">
-              {editMode ? (
-                <>
-                  <button type="button" className="ui-btn-primary w-full justify-center" onClick={saveEdits}>
-                    Сохранить изменения
-                  </button>
-                  <button
-                    type="button"
-                    className="ui-btn-ghost border-0 w-full justify-center"
-                    onClick={() => {
-                      setEditMode(false);
-                      refresh();
-                    }}
-                  >
-                    Отменить
-                  </button>
-                </>
+              {task.status !== "completed" ? (
+                <Link
+                  href={`/employer/tasks/${task.id}/edit`}
+                  className="ui-btn-ghost flex w-full justify-center border-0 no-underline"
+                >
+                  Редактировать
+                </Link>
+              ) : null}
+              {task.status === "completed" ? (
+                <button type="button" className="ui-btn-ghost border-0 w-full justify-center" onClick={handleRepeatTask}>
+                  Повторить
+                </button>
               ) : (
-                <>
-                  <button type="button" className="ui-btn-ghost border-0 w-full justify-center" onClick={() => setEditMode(true)}>
-                    Редактировать
-                  </button>
-                  <button type="button" className="ui-btn-ghost border-0 w-full justify-center" onClick={handleToggleClosed}>
-                    {task.status === "closed" ? "Снова открыть" : "Завершить"}
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-sm font-medium text-rose-200 transition hover:bg-rose-500/20"
-                    onClick={handleDelete}
-                  >
-                    Удалить
-                  </button>
-                </>
+                <button type="button" className="ui-btn-ghost border-0 w-full justify-center" onClick={handleToggleClosed}>
+                  Завершить
+                </button>
               )}
+              <button
+                type="button"
+                className="w-full rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-sm font-medium text-ink transition hover:bg-rose-500/20"
+                onClick={handleDelete}
+              >
+                Удалить
+              </button>
             </div>
           </div>
         ) : null}

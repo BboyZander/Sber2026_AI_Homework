@@ -1,5 +1,6 @@
 import type { Application } from "@/types/application";
 import type { ApplicationStatus } from "@/lib/constants";
+import { normalizeApplicationStatus } from "@/lib/constants";
 import { applicationsByTeen, demoApplications } from "@/data/demo-applications";
 
 const EXTRA_KEY = "trajectory-teen-applications-extra-v1";
@@ -11,7 +12,7 @@ export const TEEN_APPLICATIONS_WITHDRAWN_KEY = WITHDRAWN_KEY;
 export const TEEN_APPLICATIONS_OVERRIDES_KEY = OVERRIDES_KEY;
 export const TEEN_APPLICATIONS_EVENT = "trajectory-teen-applications";
 
-const WITHDRAWABLE_STATUSES: ApplicationStatus[] = ["sent", "awaiting", "rejected"];
+const WITHDRAWABLE_STATUSES: ApplicationStatus[] = ["applied", "rejected"];
 
 function readExtra(): Application[] {
   if (typeof window === "undefined") return [];
@@ -19,7 +20,11 @@ function readExtra(): Application[] {
     const raw = window.localStorage.getItem(EXTRA_KEY);
     if (!raw) return [];
     const data = JSON.parse(raw) as unknown;
-    return Array.isArray(data) ? (data as Application[]) : [];
+    if (!Array.isArray(data)) return [];
+    return data.map((row) => {
+      const item = row as Application;
+      return { ...item, status: normalizeApplicationStatus(item.status) };
+    });
   } catch {
     return [];
   }
@@ -38,7 +43,12 @@ function readOverrides(): OverridesMap {
     if (!raw) return {};
     const data = JSON.parse(raw) as unknown;
     if (!data || typeof data !== "object" || Array.isArray(data)) return {};
-    return data as OverridesMap;
+    const rawMap = data as Record<string, unknown>;
+    const out: OverridesMap = {};
+    for (const [appId, status] of Object.entries(rawMap)) {
+      out[appId] = normalizeApplicationStatus(status);
+    }
+    return out;
   } catch {
     return {};
   }
@@ -162,7 +172,7 @@ export function appendTeenApplication(teenId: string, taskId: string): boolean {
     id: `ext-${Date.now()}`,
     teenId,
     taskId,
-    status: "sent",
+    status: "applied",
     createdAt: new Date().toISOString(),
   };
   writeExtra([...extras, next]);

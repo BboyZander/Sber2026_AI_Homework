@@ -5,16 +5,16 @@ type Status = TaskStatus | ApplicationStatus;
 
 const taskTone: Record<TaskStatus, string> = {
   draft: "border-sub-deep/30 bg-panel-muted/80 text-sub",
-  published: "border-accent/35 bg-accent-soft text-accent-bright",
-  closed: "border-rose-500/30 bg-rose-500/15 text-rose-300",
+  open: "border-accent/35 bg-accent-soft text-accent-bright",
+  in_progress: "border-accent-dark/45 bg-accent/12 text-accent-bright",
+  completed: "border-rose-500/30 bg-rose-500/15 text-rose-300",
 };
 
 const appTone: Record<ApplicationStatus, string> = {
-  sent: "border-accent/40 bg-accent-soft text-accent-bright",
-  awaiting: "border-accent/35 bg-accent/10 text-accent-bright",
-  rejected: "border-rose-500/45 bg-rose-500/15 text-rose-200",
-  in_progress: "border-accent-dark/45 bg-accent/12 text-accent-bright",
-  completed: "border-accent/45 bg-accent/18 text-ink",
+  applied: "border-accent/40 bg-accent-soft text-accent-bright",
+  rejected: "border-rose-400/70 bg-rose-500/20 text-ink",
+  accepted: "border-accent-dark/45 bg-accent/12 text-accent-bright",
+  submitted: "border-accent/45 bg-accent/18 text-ink",
   paid: "border-accent-dark/50 bg-accent/22 text-ink",
 };
 

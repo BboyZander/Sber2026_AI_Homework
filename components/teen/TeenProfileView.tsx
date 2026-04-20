@@ -9,7 +9,7 @@ import { AchievementCard } from "@/components/teen/AchievementCard";
 import { XPProgress } from "@/components/teen/XPProgress";
 import { SectionTitle } from "@/components/shared/SectionTitle";
 import { demoAchievements } from "@/data/demo-achievements";
-import { nextLevelXpTarget } from "@/data/teen-dashboard";
+import { toDashboardDisplayStats } from "@/data/teen-dashboard";
 import { formatDate, formatRub, formatXp } from "@/lib/helpers";
 import { taskComparablePayRub } from "@/lib/task-payment";
 import { computeTeenActivityStats } from "@/lib/teen-activity-stats";
@@ -205,9 +205,10 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
     );
   }
 
-  const stats = computeTeenActivityStats(apps);
-  const currentXp = teen.xp + stats.earnedDemoXp;
-  const nextLevelXp = nextLevelXpTarget(teen.level, currentXp);
+  const activity = computeTeenActivityStats(apps);
+  const dash = toDashboardDisplayStats(teen, activity);
+  const currentXp = dash.xp;
+  const nextLevelXp = dash.nextLevelXp;
   const hint = buildTeenProfileHint(apps);
   const interests = teen.interests?.length ? teen.interests : [];
   const walletHistory = apps
@@ -284,7 +285,7 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
             <p className="mt-1 m-0 text-xl font-bold tabular-nums text-ink">{formatXp(currentXp)} XP</p>
             <p className="mt-0.5 m-0 text-xs text-sub">до уровня {teen.level + 1} — {formatXp(nextLevelXp)} XP</p>
             <p className="mt-2 m-0 text-xs font-semibold uppercase tracking-wider text-sub">Кошелёк</p>
-            <p className="mt-0.5 m-0 text-sm font-semibold text-accent-bright">{formatRub(stats.earnedDemoRub)}</p>
+            <p className="mt-0.5 m-0 text-sm font-semibold text-accent-bright">{formatRub(dash.earnedDemoRub)}</p>
           </div>
         </div>
 
@@ -434,9 +435,9 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
               Считаем из откликов в этом браузере (демо и раздел «Отклики»).
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
-              <StatTile label="Отклики" value={String(stats.applicationsCount)} sub="всего в списке" />
-              <StatTile label="Завершено" value={String(stats.completedTasksCount)} sub="«Выполнено» и «Оплачено»" />
-              <StatTile label="Заработано (демо)" value={formatRub(stats.earnedDemoRub)} sub="по задачам со статусом «Оплачено»" />
+              <StatTile label="Отклики" value={String(activity.applicationsCount)} sub="всего в списке" />
+              <StatTile label="Завершено" value={String(activity.completedTasksCount)} sub="«Ждёт подтверждения» и «Оплачено»" />
+              <StatTile label="Заработано (демо)" value={formatRub(activity.earnedDemoRub)} sub="по задачам со статусом «Оплачено»" />
             </div>
           </motion.section>
 

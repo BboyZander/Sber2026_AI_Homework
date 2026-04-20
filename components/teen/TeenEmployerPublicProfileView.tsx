@@ -25,7 +25,7 @@ export function TeenEmployerPublicProfileView({ employerId }: { employerId: stri
     setProfile(p);
     if (!p) return;
     const tasks = getEmployerTasks(employerId);
-    setPublishedCount(tasks.filter((t) => t.status === "published").length);
+    setPublishedCount(tasks.filter((t) => t.status === "open").length);
     setCompletedCount(tasks.filter((t) => getEmployerTaskViewStatus(t) === "completed").length);
   }, [employerId]);
 
@@ -128,9 +128,6 @@ export function TeenEmployerPublicProfileView({ employerId }: { employerId: stri
             </dd>
           </div>
         </dl>
-        <p className="mt-2 m-0 text-xs leading-relaxed text-sub-deep">
-          Данные из демо-справочника; в продукте проверяются по ЕГРЮЛ / ЕГРИП.
-        </p>
       </section>
 
       <section className="ui-card">

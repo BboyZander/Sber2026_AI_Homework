@@ -1,46 +1,69 @@
 export const USER_ROLES = ["teen", "employer"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
-export const TASK_STATUSES = ["draft", "published", "closed"] as const;
+export const TASK_STATUSES = ["draft", "open", "in_progress", "completed"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 /** Статусы отклика подростка (демо-поток). */
 export const APPLICATION_STATUSES = [
-  "sent",
-  "awaiting",
+  "applied",
   "rejected",
-  "in_progress",
-  "completed",
+  "accepted",
+  "submitted",
   "paid",
 ] as const;
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 
 /** Подписи статусов отклика (единый словарь для подростка и работодателя). */
 export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
-  sent: "Отправлен",
-  awaiting: "Ждём ответа",
-  rejected: "Отклонена",
-  in_progress: "В работе",
-  completed: "Выполнено",
+  applied: "Отклик отправлен",
+  rejected: "Отклик отклонён",
+  accepted: "Ты в работе",
+  submitted: "Ждёт подтверждения",
   paid: "Оплачено",
 };
 
 /** Подсказка на карточке отклика подростка. */
 export const APPLICATION_STATUS_HINTS: Record<ApplicationStatus, string> = {
-  sent: "Работодатель ещё не ответил — обычно это пара дней.",
-  awaiting: "Заявку смотрят, скоро будет ответ.",
-  rejected: "Работодатель отклонил заявку по этой задаче. Можно отозвать отклик и попробовать снова или выбрать другую задачу.",
-  in_progress: "Ты в деле: уточни детали у контакта из карточки задачи.",
-  completed: "Ты отметил выполнение — жди подтверждения выплаты.",
+  applied: "Работодатель получил отклик и скоро примет решение.",
+  rejected: "Работодатель отклонил отклик по этой задаче.",
+  accepted: "Ты принят в работу. Выполни задачу и отметь результат.",
+  submitted: "Результат отправлен. Ждём подтверждения выплаты от работодателя.",
   paid: "Готово: опыт на балансе, сумма в кошельке (в демо).",
 };
 
 /** Подписи статуса задачи в бейдже и сводках. */
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   draft: "Черновик",
-  published: "Активна",
-  closed: "Завершена",
+  open: "Открыта",
+  in_progress: "В работе",
+  completed: "Завершена",
 };
+
+export function normalizeTaskStatus(raw: unknown): TaskStatus {
+  if (raw === "draft" || raw === "open" || raw === "in_progress" || raw === "completed") {
+    return raw;
+  }
+  if (raw === "published") return "open";
+  if (raw === "closed") return "completed";
+  return "draft";
+}
+
+export function normalizeApplicationStatus(raw: unknown): ApplicationStatus {
+  if (
+    raw === "applied" ||
+    raw === "rejected" ||
+    raw === "accepted" ||
+    raw === "submitted" ||
+    raw === "paid"
+  ) {
+    return raw;
+  }
+  if (raw === "sent" || raw === "awaiting") return "applied";
+  if (raw === "in_progress") return "accepted";
+  if (raw === "completed") return "submitted";
+  return "applied";
+}
 
 export const TASK_CATEGORIES = [
   "delivery",
@@ -73,4 +96,26 @@ export type DurationBucket = (typeof DURATION_BUCKETS)[number];
 export const DURATION_BUCKET_LABELS: Record<DurationBucket, string> = {
   short: "Короткая",
   long: "Длинная",
+};
+
+export const ENGAGEMENT_TYPES = ["employment", "self_employed"] as const;
+export type EngagementType = (typeof ENGAGEMENT_TYPES)[number];
+export const ENGAGEMENT_TYPE_LABELS: Record<EngagementType, string> = {
+  employment: "Трудовой договор",
+  self_employed: "Самозанятость",
+};
+
+export const PHYSICAL_LOAD_LEVELS = ["none", "light"] as const;
+export type PhysicalLoadLevel = (typeof PHYSICAL_LOAD_LEVELS)[number];
+export const PHYSICAL_LOAD_LABELS: Record<PhysicalLoadLevel, string> = {
+  none: "Без нагрузки",
+  light: "Лёгкая",
+};
+
+export const MINOR_COMPLIANCE_STATUSES = ["passed", "warning", "blocked"] as const;
+export type MinorComplianceStatus = (typeof MINOR_COMPLIANCE_STATUSES)[number];
+export const MINOR_COMPLIANCE_STATUS_LABELS: Record<MinorComplianceStatus, string> = {
+  passed: "Допустимо",
+  warning: "Условно допустимо",
+  blocked: "Недопустимо",
 };

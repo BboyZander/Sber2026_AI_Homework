@@ -1,41 +1,67 @@
 import type { Application } from "@/types/application";
 
+/**
+ * Отклики демо-подростка u1, согласованы со статусами задач в demo-tasks:
+ * tdemo-08/09 — open + applied; tdemo-10–12 — in_progress + accepted; tdemo-13–15 — completed + paid.
+ */
 export const demoApplications: Application[] = [
   {
-    id: "app-1",
-    taskId: "task-1",
+    id: "app-tdemo-08",
+    taskId: "tdemo-08",
     teenId: "u1",
-    status: "awaiting",
-    message: "Готов выйти в удобное для вас время после школы.",
-    createdAt: "2026-04-10T11:00:00.000Z",
+    status: "applied",
+    message: "Могу в любой день после 15:00, опыт на стойках есть.",
+    createdAt: "2026-04-12T10:00:00.000Z",
   },
   {
-    id: "app-2",
-    taskId: "task-2",
+    id: "app-tdemo-09",
+    taskId: "tdemo-09",
     teenId: "u1",
-    status: "in_progress",
-    createdAt: "2026-04-08T16:20:00.000Z",
+    status: "applied",
+    message: "Аккуратен, внимателен к дедлайнам.",
+    createdAt: "2026-04-13T09:15:00.000Z",
   },
   {
-    id: "app-3",
-    taskId: "task-6",
+    id: "app-tdemo-10",
+    taskId: "tdemo-10",
     teenId: "u1",
-    status: "sent",
-    createdAt: "2026-04-11T09:00:00.000Z",
+    status: "accepted",
+    createdAt: "2026-04-11T08:00:00.000Z",
   },
   {
-    id: "app-4",
-    taskId: "task-8",
+    id: "app-tdemo-11",
+    taskId: "tdemo-11",
     teenId: "u1",
-    status: "completed",
-    createdAt: "2026-04-01T10:00:00.000Z",
+    status: "accepted",
+    createdAt: "2026-04-11T08:05:00.000Z",
   },
   {
-    id: "app-5",
-    taskId: "task-4",
+    id: "app-tdemo-12",
+    taskId: "tdemo-12",
+    teenId: "u1",
+    status: "accepted",
+    createdAt: "2026-04-12T14:00:00.000Z",
+  },
+  {
+    id: "app-tdemo-13",
+    taskId: "tdemo-13",
     teenId: "u1",
     status: "paid",
-    createdAt: "2026-03-28T15:00:00.000Z",
+    createdAt: "2026-03-28T16:00:00.000Z",
+  },
+  {
+    id: "app-tdemo-14",
+    taskId: "tdemo-14",
+    teenId: "u1",
+    status: "paid",
+    createdAt: "2026-03-29T12:00:00.000Z",
+  },
+  {
+    id: "app-tdemo-15",
+    taskId: "tdemo-15",
+    teenId: "u1",
+    status: "paid",
+    createdAt: "2026-03-30T10:30:00.000Z",
   },
 ];
 

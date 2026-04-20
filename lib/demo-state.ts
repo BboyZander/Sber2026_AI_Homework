@@ -3,7 +3,12 @@
  * После сброса остаются только зашитые в коде demo-задачи и demo-отклики.
  */
 
-import { EMPLOYER_TASKS_EXTRA_KEY, notifyEmployerTasksChanged } from "@/lib/employer-tasks-storage";
+import {
+  EMPLOYER_TASKS_EXTRA_KEY,
+  EMPLOYER_TASKS_OVERRIDES_KEY,
+  EMPLOYER_TASKS_PATCH_OVERRIDES_KEY,
+  notifyEmployerTasksChanged,
+} from "@/lib/employer-tasks-storage";
 import {
   notifyTeenApplicationsChanged,
   TEEN_APPLICATIONS_EXTRA_KEY,
@@ -16,6 +21,8 @@ import { PROFILE_STORAGE_KEYS } from "@/lib/profile-store";
 
 const DEMO_STORAGE_KEYS = [
   EMPLOYER_TASKS_EXTRA_KEY,
+  EMPLOYER_TASKS_OVERRIDES_KEY,
+  EMPLOYER_TASKS_PATCH_OVERRIDES_KEY,
   TEEN_APPLICATIONS_EXTRA_KEY,
   TEEN_APPLICATIONS_WITHDRAWN_KEY,
   TEEN_APPLICATIONS_OVERRIDES_KEY,

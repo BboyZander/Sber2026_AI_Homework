@@ -30,15 +30,18 @@ function QuickChip({
   children,
   onClick,
   disabled,
+  title,
 }: {
   active: boolean;
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
+      title={title}
       onClick={onClick}
       disabled={disabled}
       className={`shrink-0 touch-manipulation rounded-full border px-3 py-2 text-xs font-medium transition will-change-transform active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 sm:py-1.5 sm:text-sm ${
@@ -67,7 +70,11 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
   useEffect(() => {
     function syncAge() {
       const a = getTeenProfile().age;
-      setTeenAge(typeof a === "number" && Number.isFinite(a) ? a : undefined);
+      const n = typeof a === "number" && Number.isFinite(a) ? a : undefined;
+      setTeenAge(n);
+      if (n === undefined) {
+        setAgeFitMode((m) => (m === "mine" ? "all" : m));
+      }
     }
     syncAge();
     function onProfile(e: Event) {
@@ -137,13 +144,15 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const applyDrawer = useCallback(() => {
-    setAgeFitMode(drawerDraft.ageFitMode);
+    const fit =
+      drawerDraft.ageFitMode === "mine" && typeof teenAge !== "number" ? "all" : drawerDraft.ageFitMode;
+    setAgeFitMode(fit);
     setCategory(drawerDraft.category);
     setWorkFormat(drawerDraft.workFormat);
     setDuration(drawerDraft.duration);
     setPaySort(drawerDraft.paySort);
     setDrawerOpen(false);
-  }, [drawerDraft]);
+  }, [drawerDraft, teenAge]);
 
   const resetAllFromDrawer = useCallback(() => {
     resetFilters();
@@ -239,7 +248,12 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
           <div className="-mx-1 flex gap-2 overflow-x-auto overscroll-x-contain px-1 pb-0.5 [-webkit-overflow-scrolling:touch] sm:flex-wrap sm:overflow-visible sm:px-0">
             <QuickChip
               active={ageFitMode === "mine"}
-              disabled={loading}
+              disabled={loading || typeof teenAge !== "number"}
+              title={
+                typeof teenAge !== "number"
+                  ? "Сначала укажите возраст в профиле — тогда можно включить отбор «Подходит мне»"
+                  : undefined
+              }
               onClick={() => setAgeFitMode(ageFitMode === "mine" ? "all" : "mine")}
             >
               Подходит мне
@@ -296,6 +310,16 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
           </>
         )}
       </p>
+      {!loading &&
+      tasks.length > 0 &&
+      ageFitMode === "mine" &&
+      typeof teenAge === "number" &&
+      filtered.length < tasks.length ? (
+        <p className="m-0 text-xs leading-relaxed text-sub">
+          Под фильтром «Подходит мне» скрыты задачи с другим возрастным диапазоном или помеченные как недоступные для
+          несовершеннолетних.
+        </p>
+      ) : null}
 
       <TeenTaskFiltersDrawer
         open={drawerOpen}

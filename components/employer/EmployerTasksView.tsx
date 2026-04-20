@@ -15,9 +15,10 @@ import {
   getEmployerTaskViewStatus,
   getEmployerTasks,
 } from "@/lib/employer-flow";
+import { getApplicationsForTask, TEEN_APPLICATIONS_EVENT } from "@/lib/teen-flow";
 import { EMPLOYER_TASK_VIEW_FILTER_LABELS } from "@/lib/ui-copy";
 
-type ViewStatus = "published" | "active" | "completed";
+type ViewStatus = "draft" | "open" | "with_application" | "in_progress" | "completed";
 
 function FilterChip({
   active,
@@ -60,9 +61,11 @@ export function EmployerTasksView() {
     };
     window.addEventListener("storage", onStorage);
     window.addEventListener(EMPLOYER_TASKS_EVENT, refresh);
+    window.addEventListener(TEEN_APPLICATIONS_EVENT, refresh);
     return () => {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener(EMPLOYER_TASKS_EVENT, refresh);
+      window.removeEventListener(TEEN_APPLICATIONS_EVENT, refresh);
     };
   }, [refresh]);
 
@@ -70,7 +73,10 @@ export function EmployerTasksView() {
     () =>
       list.map((task) => ({
         task,
-        viewStatus: getEmployerTaskViewStatus(task),
+        viewStatus: getEmployerTaskViewStatus(
+          task,
+          getApplicationsForTask(task.id).some((a) => a.status === "applied"),
+        ),
       })),
     [list],
   );
@@ -84,8 +90,10 @@ export function EmployerTasksView() {
     const s = getEmployerTaskStats();
     return {
       all: s.total,
-      published: s.published,
-      active: s.active,
+      draft: s.draft,
+      open: s.open,
+      with_application: s.with_application,
+      in_progress: s.in_progress,
       completed: s.completed,
     };
   }, [list]);
@@ -105,8 +113,8 @@ export function EmployerTasksView() {
 
       <div className="ui-card border-edge-strong bg-panel-muted/75">
         <p className="m-0 text-sm text-sub">
-          Всего: <span className="font-semibold text-ink">{counts.all}</span> · Активные:{" "}
-          <span className="font-semibold text-ink">{counts.active}</span>
+          Всего: <span className="font-semibold text-ink">{counts.all}</span> · Открытые:{" "}
+          <span className="font-semibold text-ink">{counts.open}</span>
         </p>
       </div>
 

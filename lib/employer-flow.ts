@@ -6,18 +6,20 @@ import {
   EMPLOYER_TASKS_EVENT,
   appendEmployerTask,
   deleteEmployerTask,
+  editEmployerTask,
   getAllTasksMerged,
   getMergedTaskById,
   getEmployerTasks as getStoredEmployerTasks,
-  isExtraEmployerTask,
   notifyEmployerTasksChanged,
-  updateEmployerTask,
+  setTaskStatus,
 } from "@/lib/employer-tasks-storage";
 import type { EmployerProfile } from "@/types/user";
 import type { Task, TaskPaymentType } from "@/types/task";
 import { getEmployerProfileMerged } from "@/lib/employer-profile";
 import { EMPLOYER_TOASTS } from "@/lib/ui-copy";
 import { withNormalizedTaskPayment } from "@/lib/task-payment";
+import { getAllMergedApplications } from "@/lib/teen-applications-storage";
+import type { EngagementType, MinorComplianceStatus, PhysicalLoadLevel } from "@/lib/constants";
 
 export const EMPLOYER_FLOW_TOAST_EVENT = "trajectory-employer-flow-toast";
 
@@ -39,6 +41,18 @@ export type EmployerTaskPayload = {
   deadline?: string;
   minAge?: number;
   maxAge?: number;
+  engagementType: EngagementType;
+  startDateTime: string;
+  durationHours: number;
+  weeklyHoursExpected: number;
+  duringSchoolPeriodAllowed: boolean;
+  duringVacationAllowed: boolean;
+  requiresMedicalExam: boolean;
+  physicalLoadLevel: PhysicalLoadLevel;
+  isOutdoor: boolean;
+  minorComplianceStatus: MinorComplianceStatus;
+  minorComplianceReasons: string[];
+  status?: Task["status"];
 };
 
 export type EmployerTaskPatch = Partial<
@@ -58,11 +72,27 @@ export type EmployerTaskPatch = Partial<
     | "deadline"
     | "minAge"
     | "maxAge"
+    | "engagementType"
+    | "startDateTime"
+    | "durationHours"
+    | "weeklyHoursExpected"
+    | "duringSchoolPeriodAllowed"
+    | "duringVacationAllowed"
+    | "requiresMedicalExam"
+    | "physicalLoadLevel"
+    | "isOutdoor"
+    | "minorComplianceStatus"
+    | "minorComplianceReasons"
     | "status"
   >
 >;
 
-export type EmployerTaskViewStatus = "published" | "active" | "completed";
+export type EmployerTaskViewStatus =
+  | "draft"
+  | "open"
+  | "with_application"
+  | "in_progress"
+  | "completed";
 
 export function getCurrentEmployerId(): string {
   if (typeof window === "undefined") return getDemoEmployer().id;
@@ -75,29 +105,42 @@ export function getEmployerTasks(employerId?: string): Task[] {
   return getStoredEmployerTasks(employerId ?? getCurrentEmployerId());
 }
 
-export function getEmployerTaskViewStatus(task: Task): EmployerTaskViewStatus {
-  if (task.status === "closed") return "completed";
-  const ageMs = Date.now() - new Date(task.createdAt).getTime();
-  return ageMs < 1000 * 60 * 60 * 24 ? "published" : "active";
+function taskIdsWithAppliedResponses(): Set<string> {
+  const out = new Set<string>();
+  for (const app of getAllMergedApplications()) {
+    if (app.status === "applied") out.add(app.taskId);
+  }
+  return out;
+}
+
+export function getEmployerTaskViewStatus(
+  task: Task,
+  hasAppliedResponse: boolean = false,
+): EmployerTaskViewStatus {
+  if (task.status === "open" && hasAppliedResponse) return "with_application";
+  return task.status;
 }
 
 export function getEmployerTaskStats(employerId?: string) {
   const tasks = getEmployerTasks(employerId);
   const summary = {
     total: tasks.length,
-    published: 0,
-    active: 0,
+    draft: 0,
+    open: 0,
+    with_application: 0,
+    in_progress: 0,
     completed: 0,
   };
+  const withResponses = taskIdsWithAppliedResponses();
   for (const t of tasks) {
-    const view = getEmployerTaskViewStatus(t);
+    const view = getEmployerTaskViewStatus(t, withResponses.has(t.id));
     summary[view] += 1;
   }
   return summary;
 }
 
 export function getPublishedTasksForTeen(): Task[] {
-  return getAllTasksMerged().filter((t) => t.status === "published");
+  return getAllTasksMerged().filter((t) => t.status === "open");
 }
 
 export function getTaskByIdForFlow(taskId: string): Task | null {
@@ -134,7 +177,7 @@ export function publishTask(payload: EmployerTaskPayload): Task {
     title: payload.title.trim(),
     description: payload.description.trim(),
     category: payload.category,
-    status: "published",
+    status: payload.status ?? "open",
     rewardXp: 80,
     paymentType: payload.paymentType,
     paymentAmount: payload.paymentAmount,
@@ -146,18 +189,29 @@ export function publishTask(payload: EmployerTaskPayload): Task {
     location: payload.location?.trim() || undefined,
     minAge: payload.minAge,
     maxAge: payload.maxAge,
+    engagementType: payload.engagementType,
+    startDateTime: payload.startDateTime,
+    durationHours: payload.durationHours,
+    weeklyHoursExpected: payload.weeklyHoursExpected,
+    duringSchoolPeriodAllowed: payload.duringSchoolPeriodAllowed,
+    duringVacationAllowed: payload.duringVacationAllowed,
+    requiresMedicalExam: payload.requiresMedicalExam,
+    physicalLoadLevel: payload.physicalLoadLevel,
+    isOutdoor: payload.isOutdoor,
+    minorComplianceStatus: payload.minorComplianceStatus,
+    minorComplianceReasons: [...payload.minorComplianceReasons],
     deadline: payload.deadline,
     createdAt: new Date().toISOString(),
   };
   const task = withNormalizedTaskPayment(raw);
 
   appendEmployerTask(task);
-  emitEmployerToast(EMPLOYER_TOASTS.publish);
+  emitEmployerToast(task.status === "draft" ? EMPLOYER_TOASTS.draftSaved : EMPLOYER_TOASTS.publish);
   return task;
 }
 
 export function editTask(taskId: string, patch: EmployerTaskPatch): Task | null {
-  const updated = updateEmployerTask(taskId, patch);
+  const updated = editEmployerTask(taskId, patch);
   if (updated) emitEmployerToast(EMPLOYER_TOASTS.edit);
   return updated;
 }
@@ -170,17 +224,23 @@ export function removeTask(taskId: string): boolean {
 
 export function toggleTaskClosed(taskId: string): Task | null {
   const current = getTaskByIdForFlow(taskId);
-  if (!current || !isExtraEmployerTask(taskId)) return null;
-  const nextStatus: Task["status"] = current.status === "closed" ? "published" : "closed";
-  const updated = updateEmployerTask(taskId, { status: nextStatus });
+  if (!current) return null;
+  const nextStatus: Task["status"] = current.status === "completed" ? "open" : "completed";
+  const updated = setTaskStatus(taskId, nextStatus);
   if (updated) {
-    emitEmployerToast(nextStatus === "closed" ? EMPLOYER_TOASTS.closed : EMPLOYER_TOASTS.reopened);
+    emitEmployerToast(nextStatus === "completed" ? EMPLOYER_TOASTS.closed : EMPLOYER_TOASTS.reopened);
   }
   return updated;
 }
 
 export function canMutateTask(taskId: string): boolean {
-  return isExtraEmployerTask(taskId);
+  const task = getTaskByIdForFlow(taskId);
+  if (!task) return false;
+  return task.employerId === getCurrentEmployerId();
+}
+
+export function setTaskStatusForFlow(taskId: string, status: Task["status"]): Task | null {
+  return setTaskStatus(taskId, status);
 }
 
 export function refreshEmployerFlowViews() {
