@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -92,8 +93,9 @@ export function Header({ title }: { title?: string }) {
     <header className="sticky top-0 z-40 flex h-[var(--header-h)] shrink-0 items-center gap-3 border-b border-edge bg-canvas/90 px-4 backdrop-blur-md sm:px-5">
       <Link
         href="/"
-        className="shrink-0 rounded-lg font-bold tracking-tight text-ink no-underline hover:text-accent-bright hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+        className="flex shrink-0 items-center gap-2 rounded-lg font-bold tracking-tight text-ink no-underline hover:text-accent-bright hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
       >
+        <Image src="/rocket.png" alt="" width={28} height={28} className="shrink-0" />
         Траектория
       </Link>
       {title ? (

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ThemeSwitcher } from "@/components/shared/ThemeSwitcher";
 
@@ -11,8 +12,9 @@ export function LandingHeader() {
         {/* Logo */}
         <Link
           href="/"
-          className="shrink-0 no-underline hover:no-underline"
+          className="flex shrink-0 items-center gap-2 no-underline hover:no-underline"
         >
+          <Image src="/rocket.png" alt="" width={32} height={32} className="shrink-0" />
           <span className="text-base font-extrabold tracking-tight text-ink sm:text-lg">
             Траектория
           </span>

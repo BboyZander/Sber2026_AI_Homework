@@ -27,6 +27,12 @@
 - **`app/page.tsx`**: лендинг
 - **`app/login/page.tsx`**: вход/выбор роли (демо-логика)
 
+Лендинг-компоненты в `components/landing/`:
+- `LandingHeader` — шапка с логотипом (`public/rocket.png`), навигацией и кнопкой входа
+- `LandingHero` — hero-секция; справа — мок-панель с переключателем «Подросток / Работодатель» (`"use client"`, `useState`); центральные задачи визуально выведены на передний план, у подростка добавлена акцентная лупа на блоке стоимости/подходящести
+- `LandingHowItWorks` — шаги платформы, интерлив-грид для выравнивания высот
+- `LandingBenefits`, `LandingRoles`, `LandingCTA` — остальные секции (server components)
+
 - **Сценарий подростка**
   - `app/teen/dashboard/page.tsx`: главная (статистика + быстрые действия)
   - `app/teen/tasks/page.tsx`: каталог
@@ -99,7 +105,7 @@
 
 - **Next.js 15** App Router, **React 19**, **TypeScript**
 - **Tailwind CSS v4** (`@import “tailwindcss”`, кастомные токены через `@theme inline`)
-- **Framer Motion v12** — анимации внутри авторизованных страниц (дашборд, профиль); лендинг — без JS-анимаций (server components)
+- **Framer Motion v12** — анимации внутри авторизованных страниц (дашборд, профиль); лендинг — преимущественно server components, без Framer Motion (исключение: `LandingHero` — `"use client"` из-за tab-переключателя и интерактивных мок-панелей)
 - **Шрифт**: Manrope (Google Fonts, latin + cyrillic)
 - **Иконки**: инлайн SVG, без сторонних библиотек
 
@@ -140,7 +146,7 @@
 
 ## Полезные точки входа (если нужно быстро понять код)
 
-- **Лендинг**: `app/page.tsx` + `components/landing/*`
+- **Лендинг**: `app/page.tsx` + `components/landing/*`; Hero с табами, мок-панелями подростка/работодателя и выделенными центральными задачами — `components/landing/LandingHero.tsx`
 - **Создание/редактирование задачи**: `components/employer/TaskForm.tsx`
 - **Каталог и фильтры**: `components/teen/TeenTasksCatalog.tsx` + `lib/teen-task-catalog-filter.ts`
 - **Отклик и доступность**: `components/teen/TeenTaskDetailView.tsx` + `lib/minor-compliance.ts` + `lib/task-age.ts`

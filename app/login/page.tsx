@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { LoginDemoReset } from "@/components/login/LoginDemoReset";
 import { LoginScreen } from "@/components/login/LoginScreen";
@@ -18,6 +19,7 @@ export default function LoginPage() {
           href="/"
           className="flex items-center gap-2 no-underline hover:no-underline"
         >
+          <Image src="/rocket.png" alt="" width={30} height={30} className="shrink-0" />
           <span className="text-base font-extrabold tracking-tight text-ink">Траектория</span>
         </Link>
         <ThemeSwitcher />
