@@ -282,7 +282,7 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
           <div className="ui-card border-edge">
             <p className="m-0 text-xs font-semibold uppercase tracking-wider text-sub">Действия</p>
             <div className="mt-3 flex flex-col gap-2">
-              {task.status !== "completed" ? (
+              {task.status !== "completed" && task.status !== "in_progress" ? (
                 <Link
                   href={`/employer/tasks/${task.id}/edit`}
                   className="ui-btn-ghost flex w-full justify-center border-0 no-underline"

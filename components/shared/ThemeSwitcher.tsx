@@ -4,11 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { applyTheme, getStoredTheme, type ThemeMode, toggleTheme } from "@/lib/theme";
 
 export function ThemeSwitcher({ className = "" }: { className?: string }) {
-  const [mode, setMode] = useState<ThemeMode>("dark");
+  const [mode, setMode] = useState<ThemeMode>("light");
 
   useEffect(() => {
     const stored = getStoredTheme();
-    const initial = stored ?? "dark";
+    const initial = stored ?? "light";
     setMode(initial);
     applyTheme(initial);
   }, []);

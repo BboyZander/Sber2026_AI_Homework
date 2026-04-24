@@ -14,13 +14,25 @@ export function PublishedTaskCard({ task }: { task: Task }) {
       className="ui-card-interactive block text-inherit no-underline"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <span className="text-base font-semibold leading-snug text-ink sm:text-lg">{task.title}</span>
+        <span className="text-base font-bold leading-snug text-ink sm:text-[1.05rem]">{task.title}</span>
         <StatusBadge kind="task" status={task.status} />
       </div>
-      <p className="mb-0 mt-2 text-sm text-sub">
-        {CATEGORY_LABELS[task.category]} · {WORK_FORMAT_LABELS[task.workFormat]} · {task.durationLabel}
-        {ageLabel ? <> · {ageLabel}</> : null} · {taskPaymentEmployerSummary(task)} · +{task.rewardXp} XP
-      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-sub">
+        <span className="font-semibold text-ink">{taskPaymentEmployerSummary(task)}</span>
+        <span className="text-sub-deep">·</span>
+        <span>{CATEGORY_LABELS[task.category]}</span>
+        <span className="text-sub-deep">·</span>
+        <span>{WORK_FORMAT_LABELS[task.workFormat]}</span>
+        <span className="text-sub-deep">·</span>
+        <span>{task.durationLabel}</span>
+        {ageLabel ? (
+          <>
+            <span className="text-sub-deep">·</span>
+            <span>{ageLabel}</span>
+          </>
+        ) : null}
+      </div>
     </Link>
   );
 }

@@ -431,9 +431,6 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
             transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.1, ease: sectionEase }}
           >
             <SectionTitle title="Активность" />
-            <p className="-mt-1 mb-4 text-sm text-sub">
-              Считаем из откликов в этом браузере (демо и раздел «Отклики»).
-            </p>
             <div className="grid gap-3 sm:grid-cols-3">
               <StatTile label="Отклики" value={String(activity.applicationsCount)} sub="всего в списке" />
               <StatTile label="Завершено" value={String(activity.completedTasksCount)} sub="«Ждёт подтверждения» и «Оплачено»" />

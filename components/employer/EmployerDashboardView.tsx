@@ -20,6 +20,12 @@ import {
 } from "@/lib/employer-flow";
 import { TEEN_APPLICATIONS_EVENT } from "@/lib/teen-flow";
 
+const slide = (delay: number) => ({
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.35, delay, ease: [0.22, 1, 0.36, 1] as const },
+});
+
 export function EmployerDashboardView({
   employer: initialEmployer,
 }: {
@@ -75,53 +81,49 @@ export function EmployerDashboardView({
 
   return (
     <div className="ui-stack pb-2">
+      {/* Hero */}
       <motion.section
-        initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] as const }}
-        className="ui-card border-edge-strong bg-gradient-to-br from-panel-muted/95 to-panel"
+        {...(reduceMotion ? {} : slide(0))}
+        className="relative overflow-hidden rounded-2xl border border-accent/25 bg-gradient-to-br from-accent/12 via-panel-muted/70 to-transparent p-6 sm:p-8"
       >
-        <p className="m-0 text-xs font-semibold uppercase tracking-wider text-sub">Кабинет</p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Здравствуйте, {helloName}
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-sub">
-          Публикуйте задачи и следите за статусами. Основное действие здесь — создать новую задачу.
-        </p>
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <CTAButton href="/employer/tasks/new" className="w-full justify-center sm:w-auto">
-            Создать задачу
-          </CTAButton>
-          <Link
-            href="/employer/profile"
-            className="ui-btn-ghost w-full justify-center border border-edge px-4 py-2.5 text-center text-sm font-semibold no-underline hover:no-underline sm:w-auto"
-          >
-            Данные кабинета
-          </Link>
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-accent/10 blur-3xl" />
+        <div className="relative">
+          <p className="text-[0.7rem] font-bold uppercase tracking-widest text-accent/80">Кабинет работодателя</p>
+          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
+            Здравствуйте, {helloName}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-sub">
+            Публикуйте задачи и следите за статусами. Только юр. лица и ИП.
+          </p>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <CTAButton href="/employer/tasks/new" className="w-full justify-center sm:w-auto">
+              Создать задачу
+            </CTAButton>
+            <Link
+              href="/employer/profile"
+              className="ui-btn-ghost w-full justify-center border border-edge px-4 py-2.5 text-center text-sm font-semibold no-underline hover:no-underline sm:w-auto"
+            >
+              Данные кабинета
+            </Link>
+          </div>
         </div>
       </motion.section>
 
-      <motion.section
-        initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: reduceMotion ? 0 : 0.05, ease: [0.22, 1, 0.36, 1] as const }}
-      >
+      {/* Stats */}
+      <motion.section {...(reduceMotion ? {} : slide(0.05))}>
         <SectionTitle title="Сводка" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <StatCard label="Всего задач" value={stats.total} />
           <StatCard label="Черновики" value={stats.draft} />
-          <StatCard label="Открытые" value={stats.open} hint="в каталоге подростка" />
-          <StatCard label="С откликом" value={stats.with_application} />
+          <StatCard label="Открытые" value={stats.open} hint="в каталоге" accent={stats.open > 0} />
+          <StatCard label="С откликом" value={stats.with_application} accent={stats.with_application > 0} />
           <StatCard label="В работе" value={stats.in_progress} />
           <StatCard label="Завершённые" value={stats.completed} />
         </div>
       </motion.section>
 
-      <motion.section
-        initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: reduceMotion ? 0 : 0.1, ease: [0.22, 1, 0.36, 1] as const }}
-      >
+      {/* Recent tasks */}
+      <motion.section {...(reduceMotion ? {} : slide(0.1))}>
         <SectionTitle
           title="Последние задачи"
           action={
@@ -132,7 +134,7 @@ export function EmployerDashboardView({
         />
         {recent.length === 0 ? (
           <EmptyState
-            emoji="✨"
+            emoji="📋"
             title="Задач пока нет"
             description="Создайте первую — она появится в списке и в каталоге подростка."
             action={<CTAButton href="/employer/tasks/new">Создать задачу</CTAButton>}
@@ -157,16 +159,21 @@ export function EmployerDashboardView({
         )}
       </motion.section>
 
-      <motion.section
-        initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: reduceMotion ? 0 : 0.14, ease: [0.22, 1, 0.36, 1] as const }}
-        className="ui-card border-edge bg-panel-muted/75"
-      >
-        <p className="m-0 text-xs font-semibold uppercase tracking-wider text-sub">Следующий шаг</p>
-        <p className="mt-2 m-0 text-sm leading-relaxed text-sub">
-          Заполните описание и оплату, опубликуйте — задача появится в каталоге и в списке «Мои задачи».
-        </p>
+      {/* Next step hint */}
+      <motion.section {...(reduceMotion ? {} : slide(0.14))}>
+        <div className="ui-card flex items-start gap-3 border-edge bg-panel-muted/75">
+          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent/15">
+            <svg className="h-4 w-4 text-accent-bright" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-[0.7rem] font-bold uppercase tracking-widest text-sub">Следующий шаг</p>
+            <p className="mt-1 text-sm leading-relaxed text-sub">
+              Заполните описание и оплату, опубликуйте — задача появится в каталоге и в списке «Мои задачи».
+            </p>
+          </div>
+        </div>
       </motion.section>
     </div>
   );

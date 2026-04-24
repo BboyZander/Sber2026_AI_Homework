@@ -21,10 +21,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" data-theme="dark" className={manrope.variable} suppressHydrationWarning>
+    <html lang="ru" data-theme="light" className={manrope.variable} suppressHydrationWarning>
       <body className="font-sans">
         <Script id="trajectory-theme" strategy="beforeInteractive">
-          {`(function(){try{var k='trajectory-theme',t=localStorage.getItem(k);document.documentElement.setAttribute('data-theme',t==='light'||t==='dark'?t:'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`}
+          {`(function(){try{var k='trajectory-theme',t=localStorage.getItem(k);document.documentElement.setAttribute('data-theme',t==='light'||t==='dark'?t:'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`}
         </Script>
         {children}
       </body>

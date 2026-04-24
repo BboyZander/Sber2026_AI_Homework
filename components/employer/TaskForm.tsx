@@ -17,7 +17,7 @@ import {
 } from "@/lib/constants";
 import {
   type EmployerTaskPayload,
-  canMutateTask,
+  canEditTask,
   editTask,
   getTaskByIdForFlow,
   publishTask,
@@ -74,7 +74,7 @@ const initialForm: FormData = {
   hourlyRate: "",
   estimatedHours: "",
   minAge: "14",
-  engagementType: "employment",
+  engagementType: "self_employed",
   duringSchoolPeriodAllowed: true,
   duringVacationAllowed: true,
   requiresMedicalExam: false,
@@ -382,7 +382,7 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
     if (prefillDoneRef.current) return;
     if (editTaskId) {
       const t = getTaskByIdForFlow(editTaskId);
-      if (!t || !canMutateTask(editTaskId)) {
+      if (!t || !canEditTask(editTaskId)) {
         setEditLoadError(true);
         prefillDoneRef.current = true;
         return;
@@ -887,20 +887,12 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
             </label>
           </div>
 
-          <label className="block max-w-md">
+          <div className="block max-w-md">
             <span className="mb-1 block text-sm font-medium text-sub">Тип оформления</span>
-            <select
-              value={values.engagementType}
-              onChange={(e) => setField("engagementType", e.target.value as EngagementType)}
-              className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
-            >
-              {ENGAGEMENT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {ENGAGEMENT_TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
-          </label>
+            <div className="w-full rounded-xl border border-edge bg-panel-muted/60 px-4 py-3 text-sm text-ink">
+              Самозанятость
+            </div>
+          </div>
 
           <div
             className={`rounded-xl border px-3 py-2 text-sm ${

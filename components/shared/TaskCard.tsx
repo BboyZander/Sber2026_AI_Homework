@@ -14,24 +14,40 @@ export function TaskCard({
   href: string;
 }) {
   const ageLabel = formatTaskAgeRange(task);
+  const pay = taskPaymentTeenPrimaryLine(task);
 
   return (
     <Link href={href} className="ui-card-interactive block text-inherit no-underline">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <span className="text-base font-semibold leading-snug text-ink sm:text-lg">{task.title}</span>
+        <span className="text-base font-bold leading-snug text-ink sm:text-[1.05rem]">{task.title}</span>
         <StatusBadge kind="task" status={task.status} />
       </div>
-      <p className="mt-2 text-sm text-sub">
-        {WORK_FORMAT_LABELS[task.workFormat]} · {task.durationLabel} · {taskPaymentTeenPrimaryLine(task)} · +
-        {task.rewardXp} XP
-      </p>
-      <p className="mt-1 text-xs text-sub">
-        {task.employerName} · {CATEGORY_LABELS[task.category]}
-        {ageLabel ? <> · {ageLabel}</> : null}
-      </p>
-      {task.deadline ? (
-        <p className="mb-0 mt-1 text-xs text-sub">до {formatDate(task.deadline)}</p>
-      ) : null}
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-sub">
+        <span className="font-semibold text-ink">{pay}</span>
+        <span className="text-sub-deep">·</span>
+        <span>{WORK_FORMAT_LABELS[task.workFormat]}</span>
+        <span className="text-sub-deep">·</span>
+        <span>{task.durationLabel}</span>
+        {ageLabel ? (
+          <>
+            <span className="text-sub-deep">·</span>
+            <span>{ageLabel}</span>
+          </>
+        ) : null}
+      </div>
+
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem] text-sub-deep">
+        <span>{task.employerName}</span>
+        <span>·</span>
+        <span>{CATEGORY_LABELS[task.category]}</span>
+        {task.deadline ? (
+          <>
+            <span>·</span>
+            <span>до {formatDate(task.deadline)}</span>
+          </>
+        ) : null}
+      </div>
     </Link>
   );
 }

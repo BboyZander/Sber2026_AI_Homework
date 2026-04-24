@@ -29,9 +29,6 @@ export function LoginDemoReset() {
           Сбросить данные демо в этом браузере
         </button>
       )}
-      <p className="mt-2 text-xs leading-relaxed text-sub-deep">
-        Перед скринкастом или чистым прогоном. В кабинете то же самое — в меню по имени в шапке.
-      </p>
     </div>
   );
 }

@@ -239,6 +239,13 @@ export function canMutateTask(taskId: string): boolean {
   return task.employerId === getCurrentEmployerId();
 }
 
+export function canEditTask(taskId: string): boolean {
+  const task = getTaskByIdForFlow(taskId);
+  if (!task) return false;
+  if (task.status === "in_progress" || task.status === "completed") return false;
+  return task.employerId === getCurrentEmployerId();
+}
+
 export function setTaskStatusForFlow(taskId: string, status: Task["status"]): Task | null {
   return setTaskStatus(taskId, status);
 }
