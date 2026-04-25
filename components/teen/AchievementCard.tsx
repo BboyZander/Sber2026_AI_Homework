@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { Achievement } from "@/types/achievement";
 import { formatDate } from "@/lib/helpers";
 
@@ -46,23 +46,15 @@ export function AchievementCard({
             {achievement.title}
           </span>
         </button>
-        <AnimatePresence initial={false}>
-          {mobileOpen ? (
-            <motion.div
-              initial={reduceMotion ? false : { opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
-              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] as const }}
-              className="border-t border-edge px-3 pb-3 pt-2"
-            >
-              <p className="m-0 text-xs leading-relaxed text-sub">{achievement.description}</p>
-              <p className="m-0 mt-2 text-xs font-medium text-accent/90">
-                +{achievement.xpReward} XP
-                {achievement.unlockedAt ? ` · ${formatDate(achievement.unlockedAt)}` : " · скоро"}
-              </p>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        {mobileOpen ? (
+          <div className="border-t border-edge px-3 pb-3 pt-2">
+            <p className="m-0 text-xs leading-relaxed text-sub">{achievement.description}</p>
+            <p className="m-0 mt-2 text-xs font-medium text-accent/90">
+              +{achievement.xpReward} XP
+              {achievement.unlockedAt ? ` · ${formatDate(achievement.unlockedAt)}` : " · скоро"}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <motion.article
