@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 const teenSteps = [
   {
     icon: (
@@ -76,6 +80,8 @@ const employerSteps = [
   },
 ];
 
+type MobileStepKey = `teen-${number}` | `employer-${number}`;
+
 function StepCard({
   step,
   title,
@@ -112,10 +118,16 @@ function MobileStepGrid({
   title,
   subtitle,
   steps,
+  role,
+  activeStep,
+  onToggle,
 }: {
   title: string;
   subtitle: string;
   steps: typeof teenSteps;
+  role: "teen" | "employer";
+  activeStep: MobileStepKey | null;
+  onToggle: (key: MobileStepKey) => void;
 }) {
   return (
     <div className="rounded-3xl border border-edge bg-panel/70 p-3 shadow-lg shadow-black/10">
@@ -124,31 +136,51 @@ function MobileStepGrid({
         <p className="m-0 mt-0.5 text-xs text-sub">{subtitle}</p>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        {steps.map((item, i) => (
-          <details
-            key={item.title}
-            className="group rounded-2xl border border-edge bg-panel-muted/75 transition open:col-span-2 open:border-accent/35 open:bg-panel"
-          >
-            <summary className="flex min-h-28 cursor-pointer list-none flex-col justify-between rounded-2xl p-3 [&::-webkit-details-marker]:hidden">
-              <div className="flex items-center justify-between gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/15 text-xs font-bold text-accent-bright">
-                  {i + 1}
-                </span>
-                <span className="text-sub transition group-open:rotate-45 group-open:text-accent-bright">
-                  {item.icon}
-                </span>
-              </div>
-              <span className="mt-3 text-sm font-semibold leading-snug text-ink">{item.title}</span>
-            </summary>
-            <p className="m-0 px-3 pb-3 text-xs leading-relaxed text-sub">{item.description}</p>
-          </details>
-        ))}
+        {steps.map((item, i) => {
+          const stepKey: MobileStepKey = `${role}-${i}`;
+          const isOpen = activeStep === stepKey;
+
+          return (
+            <div
+              key={item.title}
+              className={`rounded-2xl border transition ${
+                isOpen
+                  ? "col-span-2 border-accent/35 bg-panel"
+                  : "border-edge bg-panel-muted/75"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => onToggle(stepKey)}
+                aria-expanded={isOpen}
+                className="flex min-h-28 w-full cursor-pointer flex-col justify-between rounded-2xl p-3 text-left"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/15 text-xs font-bold text-accent-bright">
+                    {i + 1}
+                  </span>
+                  <span className={`text-sub transition ${isOpen ? "rotate-45 text-accent-bright" : ""}`}>
+                    {item.icon}
+                  </span>
+                </div>
+                <span className="mt-3 text-sm font-semibold leading-snug text-ink">{item.title}</span>
+              </button>
+              {isOpen ? <p className="m-0 px-3 pb-3 text-xs leading-relaxed text-sub">{item.description}</p> : null}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 export function LandingHowItWorks() {
+  const [activeMobileStep, setActiveMobileStep] = useState<MobileStepKey | null>(null);
+
+  function toggleMobileStep(key: MobileStepKey) {
+    setActiveMobileStep((current) => (current === key ? null : key));
+  }
+
   return (
     <section
       id="how-it-works"
@@ -168,8 +200,22 @@ export function LandingHowItWorks() {
         </div>
 
         <div className="mt-10 grid gap-4 lg:hidden">
-          <MobileStepGrid title="Подросток" subtitle="Самозанятый · 14–17 лет" steps={teenSteps} />
-          <MobileStepGrid title="Работодатель" subtitle="Юридическое лицо или ИП" steps={employerSteps} />
+          <MobileStepGrid
+            title="Подросток"
+            subtitle="Самозанятый · 14–17 лет"
+            steps={teenSteps}
+            role="teen"
+            activeStep={activeMobileStep}
+            onToggle={toggleMobileStep}
+          />
+          <MobileStepGrid
+            title="Работодатель"
+            subtitle="Юридическое лицо или ИП"
+            steps={employerSteps}
+            role="employer"
+            activeStep={activeMobileStep}
+            onToggle={toggleMobileStep}
+          />
         </div>
 
         {/* Column headers */}

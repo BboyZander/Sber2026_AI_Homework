@@ -862,7 +862,7 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
             </div>
           )}
 
-          <div className="grid max-w-md grid-cols-2 items-start gap-3">
+          <div className="grid max-w-md items-start gap-3 min-[430px]:grid-cols-2">
             <label className="block min-w-0">
               <span className="mb-1 block text-sm font-medium text-sub">Дата</span>
               <input
