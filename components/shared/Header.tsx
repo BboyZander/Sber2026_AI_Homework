@@ -99,7 +99,9 @@ export function Header({ title }: { title?: string }) {
         Траектория
       </Link>
       {title ? (
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-sub sm:text-[0.9375rem]">{title}</span>
+        <span className="hidden min-w-0 flex-1 truncate text-sm font-medium text-sub sm:block sm:text-[0.9375rem]">
+          {title}
+        </span>
       ) : (
         <span className="flex-1" />
       )}

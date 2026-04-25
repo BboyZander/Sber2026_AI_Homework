@@ -112,7 +112,7 @@ function TeenPanel() {
                 i > 0 ? "border-t" : ""
               } ${
                 isFeatured
-                  ? "z-20 -mx-5 my-2 translate-x-2 scale-[1.105] cursor-pointer rounded-3xl border border-accent/45 bg-panel/95 px-6 py-5 shadow-[0_24px_55px_rgba(0,0,0,0.42),0_0_35px_rgba(52,211,153,0.18)] ring-1 ring-white/10 hover:scale-[1.125] hover:border-accent/70 hover:shadow-[0_28px_65px_rgba(0,0,0,0.46),0_0_45px_rgba(52,211,153,0.24)]"
+                  ? "z-20 -mx-2 my-2 scale-[1.035] cursor-pointer rounded-3xl border border-accent/45 bg-panel/95 px-4 py-4 shadow-[0_18px_42px_rgba(0,0,0,0.34),0_0_26px_rgba(52,211,153,0.14)] ring-1 ring-white/10 hover:scale-[1.055] hover:border-accent/70 sm:-mx-5 sm:translate-x-2 sm:scale-[1.105] sm:px-6 sm:py-5 sm:shadow-[0_24px_55px_rgba(0,0,0,0.42),0_0_35px_rgba(52,211,153,0.18)] sm:hover:scale-[1.125] sm:hover:shadow-[0_28px_65px_rgba(0,0,0,0.46),0_0_45px_rgba(52,211,153,0.24)]"
                   : "px-5 py-4 hover:bg-panel-muted/40"
               }`}
             >
@@ -151,8 +151,8 @@ function TeenPanel() {
                 </div>
                 {isFeatured ? (
                   <div className="pointer-events-none absolute -inset-x-4 -inset-y-4" aria-hidden="true">
-                    <div className="absolute -right-1 top-[-0.7rem] h-[6rem] w-[6rem] rounded-full border-[3px] border-accent-bright/80 bg-transparent shadow-[0_0_26px_rgba(52,211,153,0.22),inset_0_0_0_1px_rgba(255,255,255,0.2)]" />
-                    <div className="absolute -right-5 bottom-[-0.65rem] h-2 w-8 origin-left rotate-45 rounded-full bg-accent-bright/80 shadow-[0_0_14px_rgba(52,211,153,0.22)]" />
+                    <div className="absolute right-1 top-[-0.35rem] h-[4.8rem] w-[4.8rem] rounded-full border-[3px] border-accent-bright/80 bg-transparent shadow-[0_0_22px_rgba(52,211,153,0.2),inset_0_0_0_1px_rgba(255,255,255,0.2)] sm:-right-1 sm:top-[-0.7rem] sm:h-[6rem] sm:w-[6rem] sm:shadow-[0_0_26px_rgba(52,211,153,0.22),inset_0_0_0_1px_rgba(255,255,255,0.2)]" />
+                    <div className="absolute -right-3 bottom-[-0.25rem] h-1.5 w-6 origin-left rotate-45 rounded-full bg-accent-bright/80 shadow-[0_0_14px_rgba(52,211,153,0.22)] sm:-right-5 sm:bottom-[-0.65rem] sm:h-2 sm:w-8" />
                   </div>
                 ) : null}
               </div>
@@ -200,7 +200,7 @@ function EmployerPanel() {
                 i > 0 ? "border-t" : ""
               } ${
                 isFeatured
-                  ? "z-20 -mx-5 my-2 translate-x-2 scale-[1.105] cursor-pointer rounded-3xl border border-accent/45 bg-panel/95 px-6 py-5 shadow-[0_24px_55px_rgba(0,0,0,0.42),0_0_35px_rgba(52,211,153,0.18)] ring-1 ring-white/10 hover:scale-[1.125] hover:border-accent/70 hover:shadow-[0_28px_65px_rgba(0,0,0,0.46),0_0_45px_rgba(52,211,153,0.24)]"
+                  ? "z-20 -mx-2 my-2 scale-[1.035] cursor-pointer rounded-3xl border border-accent/45 bg-panel/95 px-4 py-4 shadow-[0_18px_42px_rgba(0,0,0,0.34),0_0_26px_rgba(52,211,153,0.14)] ring-1 ring-white/10 hover:scale-[1.055] hover:border-accent/70 sm:-mx-5 sm:translate-x-2 sm:scale-[1.105] sm:px-6 sm:py-5 sm:shadow-[0_24px_55px_rgba(0,0,0,0.42),0_0_35px_rgba(52,211,153,0.18)] sm:hover:scale-[1.125] sm:hover:shadow-[0_28px_65px_rgba(0,0,0,0.46),0_0_45px_rgba(52,211,153,0.24)]"
                   : "px-5 py-4 hover:bg-panel-muted/40"
               }`}
             >
