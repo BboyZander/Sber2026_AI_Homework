@@ -862,26 +862,26 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
             </div>
           )}
 
-          <div className="grid max-w-xs items-start gap-3 sm:max-w-md sm:grid-cols-2">
-            <label className="block min-w-0">
+          <div className="grid max-w-[13.5rem] items-start gap-3 sm:max-w-md sm:grid-cols-2">
+            <label className="block w-[13.5rem] max-w-full min-w-0 sm:w-auto">
               <span className="mb-1 block text-sm font-medium text-sub">Дата</span>
               <input
                 type="date"
                 value={values.deadlineDate}
                 onChange={(e) => setField("deadlineDate", e.target.value)}
                 onBlur={() => onBlurField("deadlineDate")}
-                className="h-10 w-full min-w-0 rounded-lg border border-edge bg-panel px-3 py-2 text-xs text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2 sm:h-auto sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm"
+                className="h-10 w-[13.5rem] max-w-full min-w-0 appearance-none rounded-lg border border-edge bg-panel px-3 py-2 text-xs text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2 sm:h-auto sm:w-full sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm [&::-webkit-date-and-time-value]:text-left"
               />
               <FieldError text={errors.deadlineDate} />
             </label>
-            <label className="block min-w-0">
+            <label className="block w-[13.5rem] max-w-full min-w-0 sm:w-auto">
               <span className="mb-1 block text-sm font-medium text-sub">Время</span>
               <input
                 type="time"
                 value={values.deadlineTime}
                 onChange={(e) => setField("deadlineTime", e.target.value)}
                 onBlur={() => onBlurField("deadlineTime")}
-                className="h-10 w-full min-w-0 rounded-lg border border-edge bg-panel px-3 py-2 text-xs text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2 sm:h-auto sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm"
+                className="h-10 w-[13.5rem] max-w-full min-w-0 appearance-none rounded-lg border border-edge bg-panel px-3 py-2 text-xs text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2 sm:h-auto sm:w-full sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm [&::-webkit-date-and-time-value]:text-left"
               />
               <FieldError text={errors.deadlineTime} />
             </label>
