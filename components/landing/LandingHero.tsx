@@ -1,5 +1,6 @@
 "use client";
 
+import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -250,6 +251,9 @@ function EmployerPanel() {
 
 export function LandingHero() {
   const [tab, setTab] = useState<PanelKey>("teen");
+  const reduceMotion = useReducedMotion();
+
+  const enterTransition = { duration: 0.85, ease: [0.22, 1, 0.36, 1] as const };
 
   return (
     <section
@@ -258,7 +262,12 @@ export function LandingHero() {
     >
       <div className="mx-auto grid max-w-6xl gap-14 lg:grid-cols-2 lg:items-center lg:gap-20">
         {/* Left */}
-        <div className="text-center">
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={enterTransition}
+          className="text-center"
+        >
           <h1 className="text-4xl font-extrabold leading-[1.1] tracking-tight text-ink sm:text-5xl lg:text-[3.2rem]">
             Первая легальная
             <br />
@@ -299,10 +308,15 @@ export function LandingHero() {
               </div>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* Right — mock panels with bottom pagination */}
-        <div className="relative mx-auto w-full max-w-md lg:mx-0 lg:max-w-none">
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0, y: 28, scale: 0.975 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ ...enterTransition, delay: reduceMotion ? 0 : 0.18 }}
+          className="relative mx-auto w-full max-w-md lg:mx-0 lg:max-w-none"
+        >
           {/* Glow */}
           <div className="absolute -inset-6 rounded-[2.5rem] bg-gradient-to-br from-accent/20 via-accent-dark/10 to-transparent blur-3xl" />
 
@@ -331,7 +345,7 @@ export function LandingHero() {
               </li>
             ))}
           </ul>
-        </div>
+        </motion.div>
       </div>
     </section>
   );

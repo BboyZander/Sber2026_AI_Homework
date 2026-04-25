@@ -28,9 +28,9 @@
 - **`app/login/page.tsx`**: вход/выбор роли (демо-логика)
 
 Лендинг-компоненты в `components/landing/`:
-- `LandingHeader` — шапка с логотипом (`public/rocket.png`), навигацией и кнопкой входа
-- `LandingHero` — hero-секция; справа — мок-панель с переключателем «Подросток / Работодатель» (`"use client"`, `useState`); центральные задачи визуально выведены на передний план, у подростка добавлена акцентная лупа на блоке стоимости/подходящести
-- `LandingHowItWorks` — шаги платформы, интерлив-грид для выравнивания высот
+- `LandingHeader` — шапка с логотипом (`public/rocket.png`), навигацией и кнопкой входа; на mobile ссылки «Как работает / Возможности» спрятаны в раскрывающееся меню
+- `LandingHero` — hero-секция; справа — мок-панель с переключателем «Подросток / Работодатель» (`"use client"`, `useState`); центральные задачи визуально выведены на передний план, у подростка добавлена акцентная лупа на блоке стоимости/подходящести; mobile-версия уменьшает вынос карточек/лупы, чтобы не было горизонтального переполнения; первичное появление hero слегка анимировано через Framer Motion
+- `LandingHowItWorks` — шаги платформы; desktop использует интерлив-грид для выравнивания высот, mobile использует компактные раскрывающиеся кубики с одним открытым шагом и мягкой анимацией раскрытия
 - `LandingBenefits`, `LandingRoles`, `LandingCTA` — остальные секции (server components)
 
 - **Сценарий подростка**
@@ -58,9 +58,13 @@
 - **`components/employer/*`**: экраны и виджеты работодателя (дашборд, список/деталка задач, карточки откликов, форма задачи)
 
 Ключевые компоненты:
-- **`components/employer/TaskForm.tsx`**: единая форма создания/редактирования задачи, валидация, расчёт payload, пересчёт compliance, сохранение (publish/edit)
+- **`components/shared/Header.tsx`**: общая шапка авторизованных экранов; на mobile скрывает заголовок текущей страницы, чтобы не ломать ряд логотип/тема/пользователь
+- **`components/shared/ThemeSwitcher.tsx`**: переключатель темы; на mobile показывает только иконку, подпись появляется с `sm`
+- **`components/shared/StatCard.tsx`**: карточка статистики с опциональным `compact`-режимом для плотных mobile-сводок
+- **`components/employer/TaskForm.tsx`**: единая форма создания/редактирования задачи, валидация, расчёт payload, пересчёт compliance, сохранение (publish/edit); поля даты/времени имеют mobile/iOS-safe размеры
 - **`components/teen/TeenTaskDetailView.tsx`**: деталка задачи для подростка + правила доступности отклика
 - **`components/teen/TeenTasksCatalog.tsx`**: каталог + фильтры (в т.ч. «Подходит мне»)
+- **`components/teen/AchievementCard.tsx`**: карточка достижения; на mobile работает как компактный кубик, раскрытие управляется родителем (`TeenProfileView`) так, чтобы был открыт только один элемент
 - **`components/employer/EmployerTaskDetailView.tsx`**: детальная карточка задачи у работодателя + управление откликами/статусами
 
 ### `lib/` — бизнес-логика и client-side “flow”
@@ -105,9 +109,18 @@
 
 - **Next.js 15** App Router, **React 19**, **TypeScript**
 - **Tailwind CSS v4** (`@import “tailwindcss”`, кастомные токены через `@theme inline`)
-- **Framer Motion v12** — анимации внутри авторизованных страниц (дашборд, профиль); лендинг — преимущественно server components, без Framer Motion (исключение: `LandingHero` — `"use client"` из-за tab-переключателя и интерактивных мок-панелей)
+- **Framer Motion v12** — анимации внутри авторизованных страниц (дашборд, профиль); на лендинге используется точечно (`LandingHero`, mobile-раскрытия в `LandingHowItWorks`) с учётом `prefers-reduced-motion`
 - **Шрифт**: Manrope (Google Fonts, latin + cyrillic)
 - **Иконки**: инлайн SVG, без сторонних библиотек
+
+### Mobile-адаптация
+
+- Mobile-first правки делаются через Tailwind breakpoint-классы (`sm`, `lg`) без изменения desktop-поведения, если desktop уже выглядит корректно.
+- В авторизованной шапке (`Header`) заголовок страницы скрыт на mobile; контекст страницы остаётся внутри контента (`SectionTitle`, карточки, навигация).
+- `LandingHowItWorks` на mobile не использует desktop-интерлив: шаги разделены на блоки «Подросток» и «Работодатель», каждый шаг раскрывается по клику; открытие нового шага закрывает предыдущий.
+- В профиле подростка достижения на mobile показаны сеткой 3 кубика в ряд; открытие одного достижения закрывает другое и анимирует описание. История кошелька на mobile отображает запись вертикально: задача → сумма → дата зачисления.
+- В кабинете работодателя сводка на mobile уплотнена через `StatCard compact` и сетку по 3 карточки в ряд.
+- В форме задачи поля даты/времени специально ограничены по ширине и используют `appearance-none`, чтобы нативные `date/time` input на iOS Safari не распирали контейнер.
 
 ### Темизация
 
@@ -146,8 +159,9 @@
 
 ## Полезные точки входа (если нужно быстро понять код)
 
-- **Лендинг**: `app/page.tsx` + `components/landing/*`; Hero с табами, мок-панелями подростка/работодателя и выделенными центральными задачами — `components/landing/LandingHero.tsx`
+- **Лендинг**: `app/page.tsx` + `components/landing/*`; Hero с табами, мок-панелями подростка/работодателя и выделенными центральными задачами — `components/landing/LandingHero.tsx`; mobile-шаги — `components/landing/LandingHowItWorks.tsx`
 - **Создание/редактирование задачи**: `components/employer/TaskForm.tsx`
+- **Mobile-профиль подростка**: `components/teen/TeenProfileView.tsx` + `components/teen/AchievementCard.tsx`
 - **Каталог и фильтры**: `components/teen/TeenTasksCatalog.tsx` + `lib/teen-task-catalog-filter.ts`
 - **Отклик и доступность**: `components/teen/TeenTaskDetailView.tsx` + `lib/minor-compliance.ts` + `lib/task-age.ts`
 - **Данные и мердж**: `lib/*-storage.ts` + `data/demo-*.ts`

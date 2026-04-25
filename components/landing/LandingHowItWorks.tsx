@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useState } from "react";
 
 const teenSteps = [
@@ -129,6 +130,8 @@ function MobileStepGrid({
   activeStep: MobileStepKey | null;
   onToggle: (key: MobileStepKey) => void;
 }) {
+  const reduceMotion = useReducedMotion();
+
   return (
     <div className="rounded-3xl border border-edge bg-panel/70 p-3 shadow-lg shadow-black/10">
       <div className="px-1 pb-3">
@@ -165,7 +168,19 @@ function MobileStepGrid({
                 </div>
                 <span className="mt-3 text-sm font-semibold leading-snug text-ink">{item.title}</span>
               </button>
-              {isOpen ? <p className="m-0 px-3 pb-3 text-xs leading-relaxed text-sub">{item.description}</p> : null}
+              <AnimatePresence initial={false}>
+                {isOpen ? (
+                  <motion.p
+                    initial={reduceMotion ? false : { opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
+                    transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] as const }}
+                    className="m-0 px-3 pb-3 text-xs leading-relaxed text-sub"
+                  >
+                    {item.description}
+                  </motion.p>
+                ) : null}
+              </AnimatePresence>
             </div>
           );
         })}
