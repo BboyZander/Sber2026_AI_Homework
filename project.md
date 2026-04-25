@@ -15,7 +15,7 @@
 
 - **Работодатель**
   - Список задач `/employer/tasks`, деталка `/employer/tasks/[id]`
-  - Создание `/employer/tasks/new` и редактирование `/employer/tasks/[id]/edit` — **одна и та же форма** с предзаполнением
+  - Создание `/employer/tasks/new` и редактирование `/employer/tasks/[id]/edit` — **одна и та же форма** с предзаполнением; для офлайн-задач поле локации поддерживает адресные подсказки, для онлайн-задач локация не нужна и не сохраняется
   - Редактирование заблокировано для задач в статусах `in_progress` и `completed` — и в UI (кнопка скрыта), и на уровне формы (`canEditTask`)
   - Управление жизненным циклом: черновик → открыта → в работе → завершена; управление откликами (взять в работу/отклонить/оплата)
   - **Тип оформления**: в форме отображается только «Самозанятость»; «Трудовой договор» скрыт (логика не реализована)
@@ -61,7 +61,7 @@
 - **`components/shared/Header.tsx`**: общая шапка авторизованных экранов; на mobile скрывает заголовок текущей страницы, чтобы не ломать ряд логотип/тема/пользователь
 - **`components/shared/ThemeSwitcher.tsx`**: переключатель темы; на mobile показывает только иконку, подпись появляется с `sm`
 - **`components/shared/StatCard.tsx`**: карточка статистики с опциональным `compact`-режимом для плотных mobile-сводок
-- **`components/employer/TaskForm.tsx`**: единая форма создания/редактирования задачи, валидация, расчёт payload, пересчёт compliance, сохранение (publish/edit); поля даты/времени имеют mobile/iOS-safe размеры
+- **`components/employer/TaskForm.tsx`**: единая форма создания/редактирования задачи, валидация, расчёт payload, пересчёт compliance, сохранение (publish/edit); поля даты/времени имеют mobile/iOS-safe размеры; поле локации скрывается для `online` и использует `/api/address-suggest` для подсказок адресов
 - **`components/teen/TeenTaskDetailView.tsx`**: деталка задачи для подростка + правила доступности отклика
 - **`components/teen/TeenTasksCatalog.tsx`**: каталог + фильтры (в т.ч. «Подходит мне»)
 - **`components/teen/AchievementCard.tsx`**: карточка достижения; на mobile работает как компактный кубик, раскрытие управляется родителем (`TeenProfileView`) так, чтобы был открыт только один элемент
@@ -105,6 +105,10 @@
 
 - заметки по демо-потоку и внутренним решениям (не часть runtime)
 
+### `app/api/` — server routes
+
+- **`app/api/address-suggest/route.ts`**: прокси для адресных подсказок через Яндекс Геокодер. Использует `YANDEX_GEOCODER_API_KEY` (или `YANDEX_MAPS_API_KEY`) на сервере; если ключ не задан, форма остаётся ручной и не ломает демо.
+
 ## Стек и дизайн-система
 
 - **Next.js 15** App Router, **React 19**, **TypeScript**
@@ -112,6 +116,10 @@
 - **Framer Motion v12** — анимации внутри авторизованных страниц (дашборд, профиль); на лендинге используется точечно (`LandingHero`) с учётом `prefers-reduced-motion`
 - **Шрифт**: Manrope (Google Fonts, latin + cyrillic)
 - **Иконки**: инлайн SVG, без сторонних библиотек
+
+### Интеграции
+
+- **Яндекс Геокодер** — опциональная интеграция для быстрого заполнения адреса офлайн-задачи. На Vercel нужно добавить `YANDEX_GEOCODER_API_KEY` (или `YANDEX_MAPS_API_KEY`); токен не уходит в браузер, запросы идут через `/api/address-suggest`.
 
 ### Mobile-адаптация
 
@@ -121,6 +129,7 @@
 - В профиле подростка достижения на mobile показаны сеткой 3 кубика в ряд; открытие одного достижения закрывает другое. История кошелька на mobile отображает запись вертикально: задача → сумма → дата зачисления.
 - В кабинете работодателя сводка на mobile уплотнена через `StatCard compact` и сетку по 3 карточки в ряд.
 - В форме задачи поля даты/времени специально ограничены по ширине и используют `appearance-none`, чтобы нативные `date/time` input на iOS Safari не распирали контейнер.
+- В форме задачи поле адреса показывается только для офлайн-формата. При выборе `Онлайн` локация очищается и в payload не попадает.
 
 ### Темизация
 
@@ -161,6 +170,7 @@
 
 - **Лендинг**: `app/page.tsx` + `components/landing/*`; Hero с табами, мок-панелями подростка/работодателя и выделенными центральными задачами — `components/landing/LandingHero.tsx`; mobile-шаги — `components/landing/LandingHowItWorks.tsx`
 - **Создание/редактирование задачи**: `components/employer/TaskForm.tsx`
+- **Адресные подсказки**: `app/api/address-suggest/route.ts` + env `YANDEX_GEOCODER_API_KEY`
 - **Mobile-профиль подростка**: `components/teen/TeenProfileView.tsx` + `components/teen/AchievementCard.tsx`
 - **Каталог и фильтры**: `components/teen/TeenTasksCatalog.tsx` + `lib/teen-task-catalog-filter.ts`
 - **Отклик и доступность**: `components/teen/TeenTaskDetailView.tsx` + `lib/minor-compliance.ts` + `lib/task-age.ts`

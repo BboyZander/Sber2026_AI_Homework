@@ -62,6 +62,11 @@ type FormData = {
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
 
+type AddressSuggestion = {
+  value: string;
+  unrestrictedValue?: string;
+};
+
 const initialForm: FormData = {
   title: "",
   description: "",
@@ -190,7 +195,7 @@ function buildEmployerTaskPayload(
     workFormat: values.workFormat,
     durationBucket: durationBucketFromHours(durationHours),
     durationLabel: label,
-    location: values.location.trim() || undefined,
+    location: values.workFormat === "online" ? undefined : values.location.trim() || undefined,
     minAge: Number.isFinite(Number(values.minAge)) ? Number(values.minAge) : undefined,
     maxAge: DEFAULT_MAX_TEEN_AGE,
     engagementType: values.engagementType,
@@ -238,6 +243,7 @@ function validateField(field: keyof FormData, values: FormData): string | undefi
     if (desc.length < 20) return "Описание — от 20 символов.";
   }
   if (field === "location") {
+    if (values.workFormat === "online") return undefined;
     if (!location) return "Укажите город или точку.";
   }
   if (field === "durationLabel") {
@@ -334,11 +340,26 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
   const [submitMode, setSubmitMode] = useState<"open" | "draft">("open");
   const [editLoadError, setEditLoadError] = useState(false);
   const [editingPriorTask, setEditingPriorTask] = useState<Task | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [addressSuggestLoading, setAddressSuggestLoading] = useState(false);
+  const [addressSuggestUnavailable, setAddressSuggestUnavailable] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
   const prefillDoneRef = useRef(false);
 
   function setField<K extends keyof FormData>(key: K, value: FormData[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setWorkFormat(next: WorkFormat) {
+    setValues((prev) => ({
+      ...prev,
+      workFormat: next,
+      location: next === "online" ? "" : prev.location,
+    }));
+    if (next === "online") {
+      setAddressSuggestions([]);
+      setErrors((prev) => ({ ...prev, location: undefined }));
+    }
   }
 
   function setHourlyDurationHours(next: string) {
@@ -377,6 +398,43 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
     if (!submitted) return;
     setErrors(validateAll(values));
   }, [values, submitted]);
+
+  useEffect(() => {
+    const query = values.location.trim();
+    if (values.workFormat === "online" || query.length < 3) {
+      setAddressSuggestions([]);
+      setAddressSuggestLoading(false);
+      setAddressSuggestUnavailable(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setAddressSuggestLoading(true);
+      setAddressSuggestUnavailable(false);
+      try {
+        const res = await fetch(`/api/address-suggest?query=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error("Address suggestions unavailable");
+        const data = (await res.json()) as { suggestions?: AddressSuggestion[]; configured?: boolean };
+        setAddressSuggestions(data.suggestions?.slice(0, 5) ?? []);
+        setAddressSuggestUnavailable(data.configured === false);
+      } catch (error) {
+        if ((error as DOMException).name !== "AbortError") {
+          setAddressSuggestions([]);
+          setAddressSuggestUnavailable(true);
+        }
+      } finally {
+        if (!controller.signal.aborted) setAddressSuggestLoading(false);
+      }
+    }, 260);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [values.location, values.workFormat]);
 
   useEffect(() => {
     if (prefillDoneRef.current) return;
@@ -644,7 +702,7 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
                     <button
                       key={f}
                       type="button"
-                      onClick={() => setField("workFormat", f)}
+                      onClick={() => setWorkFormat(f)}
                       className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
                         active
                           ? "border-accent/50 bg-accent-soft text-accent-bright"
@@ -659,17 +717,47 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
             </div>
           </div>
 
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-sub">Город / локация</span>
-            <input
-              value={values.location}
-              onChange={(e) => setField("location", e.target.value)}
-              onBlur={() => onBlurField("location")}
-              placeholder="Москва, м. Тверская"
-              className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
-            />
-            <FieldError text={errors.location} />
-          </label>
+          {values.workFormat === "online" ? (
+            <div className="rounded-xl border border-edge bg-panel-muted/60 px-4 py-3 text-sm text-sub">
+              Для онлайн-задачи адрес не нужен: подросток увидит формат «Онлайн».
+            </div>
+          ) : (
+            <label className="relative block">
+              <span className="mb-1 block text-sm font-medium text-sub">Город / локация</span>
+              <input
+                value={values.location}
+                onChange={(e) => setField("location", e.target.value)}
+                onBlur={() => onBlurField("location")}
+                placeholder="Начните вводить адрес"
+                autoComplete="street-address"
+                className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
+              />
+              {addressSuggestions.length > 0 ? (
+                <div className="absolute left-0 right-0 z-20 mt-1 overflow-hidden rounded-xl border border-edge bg-panel shadow-xl shadow-black/20">
+                  {addressSuggestions.map((item) => (
+                    <button
+                      key={item.unrestrictedValue ?? item.value}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setField("location", item.value);
+                        setAddressSuggestions([]);
+                        setErrors((prev) => ({ ...prev, location: undefined }));
+                      }}
+                      className="block w-full border-0 bg-transparent px-4 py-2.5 text-left text-sm text-ink transition hover:bg-panel-muted focus-visible:bg-panel-muted focus-visible:outline-none"
+                    >
+                      {item.value}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {addressSuggestLoading ? <p className="m-0 mt-1 text-xs text-sub">Ищем адрес...</p> : null}
+              {addressSuggestUnavailable ? (
+                <p className="m-0 mt-1 text-xs text-sub-deep">Подсказки недоступны, адрес можно ввести вручную.</p>
+              ) : null}
+              <FieldError text={errors.location} />
+            </label>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
             <label className="block min-w-0">
