@@ -32,7 +32,7 @@ export function ThemeSwitcher({ className = "" }: { className?: string }) {
       <span className="text-base leading-none" aria-hidden>
         {mode === "dark" ? "☀" : "☾"}
       </span>
-      <span className="hidden min-[380px]:inline">{mode === "dark" ? "Светлая" : "Тёмная"}</span>
+      <span className="hidden sm:inline">{mode === "dark" ? "Светлая" : "Тёмная"}</span>
     </button>
   );
 }

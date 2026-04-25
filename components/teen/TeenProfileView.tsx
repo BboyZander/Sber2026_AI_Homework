@@ -95,6 +95,7 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; age?: string }>({});
   const [dirtyBaseline, setDirtyBaseline] = useState<string | null>(null);
   const [savedOk, setSavedOk] = useState(false);
+  const [openAchievementId, setOpenAchievementId] = useState<string | null>(null);
 
   const interestCodes = useMemo(() => getTeenInterestCodes(), []);
 
@@ -468,7 +469,13 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
             </p>
             <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {demoAchievements.map((a, i) => (
-                <AchievementCard key={a.id} achievement={a} index={i} />
+                <AchievementCard
+                  key={a.id}
+                  achievement={a}
+                  index={i}
+                  mobileOpen={openAchievementId === a.id}
+                  onMobileToggle={() => setOpenAchievementId((current) => (current === a.id ? null : a.id))}
+                />
               ))}
             </div>
           </motion.section>
@@ -490,13 +497,13 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
                 <ul className="m-0 flex list-none flex-col gap-2 p-0">
                   {walletHistory.map(({ app, task }) => (
                     <li key={app.id} className="rounded-xl border border-edge bg-panel px-3 py-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
                         <p className="m-0 text-sm font-medium text-ink">{task?.title ?? `Задача ${app.taskId}`}</p>
                         <p className="m-0 text-sm font-semibold text-accent-bright">
                           {formatRub(task ? taskComparablePayRub(task) : 0)}
                         </p>
                       </div>
-                      <p className="m-0 mt-1 text-xs text-sub">Зачислено {formatDate(app.createdAt)}</p>
+                      <p className="m-0 mt-1 text-xs text-sub sm:mt-1">Зачислено {formatDate(app.createdAt)}</p>
                     </li>
                   ))}
                 </ul>
