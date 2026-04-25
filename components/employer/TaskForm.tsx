@@ -862,7 +862,7 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
             </div>
           )}
 
-          <div className="grid max-w-xl gap-3 sm:grid-cols-2 sm:items-start">
+          <div className="grid max-w-md grid-cols-2 items-start gap-3">
             <label className="block min-w-0">
               <span className="mb-1 block text-sm font-medium text-sub">Дата</span>
               <input
@@ -870,7 +870,7 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
                 value={values.deadlineDate}
                 onChange={(e) => setField("deadlineDate", e.target.value)}
                 onBlur={() => onBlurField("deadlineDate")}
-                className="w-full min-w-0 rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
+                className="w-full min-w-0 rounded-xl border border-edge bg-panel px-3 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2 sm:px-4"
               />
               <FieldError text={errors.deadlineDate} />
             </label>
@@ -881,7 +881,7 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
                 value={values.deadlineTime}
                 onChange={(e) => setField("deadlineTime", e.target.value)}
                 onBlur={() => onBlurField("deadlineTime")}
-                className="w-full min-w-0 rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
+                className="w-full min-w-0 rounded-xl border border-edge bg-panel px-3 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2 sm:px-4"
               />
               <FieldError text={errors.deadlineTime} />
             </label>

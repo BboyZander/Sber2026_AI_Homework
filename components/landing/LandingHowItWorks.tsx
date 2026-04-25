@@ -108,6 +108,46 @@ function StepCard({
   );
 }
 
+function MobileStepGrid({
+  title,
+  subtitle,
+  steps,
+}: {
+  title: string;
+  subtitle: string;
+  steps: typeof teenSteps;
+}) {
+  return (
+    <div className="rounded-3xl border border-edge bg-panel/70 p-3 shadow-lg shadow-black/10">
+      <div className="px-1 pb-3">
+        <p className="m-0 text-sm font-bold text-ink">{title}</p>
+        <p className="m-0 mt-0.5 text-xs text-sub">{subtitle}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {steps.map((item, i) => (
+          <details
+            key={item.title}
+            className="group rounded-2xl border border-edge bg-panel-muted/75 transition open:col-span-2 open:border-accent/35 open:bg-panel"
+          >
+            <summary className="flex min-h-28 cursor-pointer list-none flex-col justify-between rounded-2xl p-3 [&::-webkit-details-marker]:hidden">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/15 text-xs font-bold text-accent-bright">
+                  {i + 1}
+                </span>
+                <span className="text-sub transition group-open:rotate-45 group-open:text-accent-bright">
+                  {item.icon}
+                </span>
+              </div>
+              <span className="mt-3 text-sm font-semibold leading-snug text-ink">{item.title}</span>
+            </summary>
+            <p className="m-0 px-3 pb-3 text-xs leading-relaxed text-sub">{item.description}</p>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function LandingHowItWorks() {
   return (
     <section
@@ -127,8 +167,13 @@ export function LandingHowItWorks() {
           </p>
         </div>
 
+        <div className="mt-10 grid gap-4 lg:hidden">
+          <MobileStepGrid title="Подросток" subtitle="Самозанятый · 14–17 лет" steps={teenSteps} />
+          <MobileStepGrid title="Работодатель" subtitle="Юридическое лицо или ИП" steps={employerSteps} />
+        </div>
+
         {/* Column headers */}
-        <div className="mt-14 grid gap-8 lg:grid-cols-2">
+        <div className="mt-14 hidden gap-8 lg:grid lg:grid-cols-2">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/15">
               <svg className="h-4 w-4 text-accent-bright" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -154,7 +199,7 @@ export function LandingHowItWorks() {
         </div>
 
         {/* Step cards — interleaved 2-column grid so rows auto-equalize heights */}
-        <div className="mt-4 grid gap-x-8 gap-y-3 lg:grid-cols-2">
+        <div className="mt-4 hidden gap-x-8 gap-y-3 lg:grid lg:grid-cols-2">
           {[0, 1, 2, 3].flatMap((i) => [
             <StepCard
               key={`teen-${i}`}

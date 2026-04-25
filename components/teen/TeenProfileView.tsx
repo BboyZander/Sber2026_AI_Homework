@@ -466,7 +466,7 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
             <p className="-mt-1 mb-4 text-sm text-sub">
               Награды за шаги в сервисе: копи XP и открывай уровни.
             </p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {demoAchievements.map((a, i) => (
                 <AchievementCard key={a.id} achievement={a} index={i} />
               ))}
