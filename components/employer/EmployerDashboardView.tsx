@@ -112,13 +112,13 @@ export function EmployerDashboardView({
       {/* Stats */}
       <motion.section {...(reduceMotion ? {} : slide(0.05))}>
         <SectionTitle title="Сводка" />
-        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <StatCard label="Всего задач" value={stats.total} />
-          <StatCard label="Черновики" value={stats.draft} />
-          <StatCard label="Открытые" value={stats.open} hint="в каталоге" accent={stats.open > 0} />
-          <StatCard label="С откликом" value={stats.with_application} accent={stats.with_application > 0} />
-          <StatCard label="В работе" value={stats.in_progress} />
-          <StatCard label="Завершённые" value={stats.completed} />
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-6">
+          <StatCard label="Всего задач" value={stats.total} compact />
+          <StatCard label="Черновики" value={stats.draft} compact />
+          <StatCard label="Открытые" value={stats.open} hint="в каталоге" accent={stats.open > 0} compact />
+          <StatCard label="С откликом" value={stats.with_application} accent={stats.with_application > 0} compact />
+          <StatCard label="В работе" value={stats.in_progress} compact />
+          <StatCard label="Завершённые" value={stats.completed} compact />
         </div>
       </motion.section>
 
