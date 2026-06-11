@@ -12,6 +12,11 @@ export const demoTasks: Task[] = [
     title: "Черновик: сборка раздаточных пакетов",
     description:
       "Подготовка конвертов с бейджами и картой площадки. Работа сидя, инструкция в PDF, срок согласуем после публикации.",
+    whatToDo:
+      "Разложить бейджи и карты площадки по конвертам по списку из инструкции, заклеить и сложить в коробки партиями по 20 штук.",
+    completionCriteria:
+      "Все конверты заполнены по списку без ошибок в именах, коробки подписаны и сложены у выхода со склада.",
+    contactPerson: "Марина, координатор склада — телефон и Telegram придут в чат после отклика.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "events",
@@ -27,6 +32,7 @@ export const demoTasks: Task[] = [
     minAge: 14,
     maxAge: 17,
     engagementType: "employment",
+    hasFixedSchedule: true,
     startDateTime: "2026-05-15T11:00:00.000Z",
     durationHours: 2,
     weeklyHoursExpected: 4,
@@ -44,6 +50,11 @@ export const demoTasks: Task[] = [
     title: "Черновик: опрос гостей на выставке",
     description:
       "Короткий опрос на планшете, только вежливость и готовность повторять скрипт. Одежда делов casual, обучение 20 минут.",
+    whatToDo:
+      "Подходить к посетителям стенда, задавать 5 вопросов из скрипта на планшете и фиксировать ответы в форме.",
+    completionCriteria:
+      "Заполнено не меньше 30 анкет за смену, ответы внесены без пропусков полей.",
+    contactPerson: "Олег, менеджер стенда — встретит у входа в Экспоцентр, контакты в чате после отклика.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "promo",
@@ -60,6 +71,7 @@ export const demoTasks: Task[] = [
     minAge: 15,
     maxAge: 17,
     engagementType: "employment",
+    hasFixedSchedule: true,
     startDateTime: "2026-05-18T12:00:00.000Z",
     durationHours: 3,
     weeklyHoursExpected: 6,
@@ -77,6 +89,11 @@ export const demoTasks: Task[] = [
     title: "Черновик: перенос коробок внутри офиса",
     description:
       "Лёгкая перестановка до 10 кг между этажами на лифте, без выноса на улицу. Нужна аккуратность и пунктуальность.",
+    whatToDo:
+      "Перенести коробки с документами с третьего этажа на пятый на лифте и расставить по меткам на стеллажах.",
+    completionCriteria:
+      "Все коробки на месте по списку, ничего не повреждено, стеллажи не загораживают проходы.",
+    contactPerson: "Игорь, офис-менеджер — встретит на ресепшене, телефон придёт в чат после отклика.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "other",
@@ -92,6 +109,7 @@ export const demoTasks: Task[] = [
     minAge: 16,
     maxAge: 17,
     engagementType: "self_employed",
+    hasFixedSchedule: false,
     startDateTime: "2026-05-20T11:00:00.000Z",
     durationHours: 2,
     weeklyHoursExpected: 4,
@@ -109,6 +127,11 @@ export const demoTasks: Task[] = [
     title: "Раздача флаеров у входа в ТЦ",
     description:
       "Две смены по 2 часа, выдаём пакет и скрипт из трёх фраз. Работа стоя у входной группы, перерывы по 15 минут.",
+    whatToDo:
+      "Стоять у входной группы ТЦ, вручать флаер каждому проходящему и проговаривать три фразы из скрипта.",
+    completionCriteria:
+      "Розданы все флаеры из пачки (≈150 шт. за смену), скрипт произносится без сокращений.",
+    contactPerson: "Анна, супервайзер промо — встретит на месте за 10 минут до начала, номер придёт в чат после отклика.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "promo",
@@ -124,6 +147,7 @@ export const demoTasks: Task[] = [
     minAge: 14,
     maxAge: 17,
     engagementType: "employment",
+    hasFixedSchedule: true,
     startDateTime: "2026-04-21T11:00:00.000Z",
     durationHours: 2,
     weeklyHoursExpected: 6,
@@ -142,6 +166,11 @@ export const demoTasks: Task[] = [
     title: "Онлайн-модерация чата трансляции",
     description:
       "Удаление спама и дублирующих сообщений, отметка вопросов ведущему. Доступ к закрытому чату выдаём за час до эфира.",
+    whatToDo:
+      "Следить за чатом во время эфира, удалять спам и дубли, помечать вопросы для ведущего меткой «#вопрос».",
+    completionCriteria:
+      "К концу эфира в чате нет спама, ведущему передано не меньше 5 отмеченных вопросов.",
+    contactPerson: "Денис, продюсер трансляции — добавит в закрытый чат за час до эфира, контакт придёт после отклика.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "other",
@@ -157,6 +186,7 @@ export const demoTasks: Task[] = [
     minAge: 16,
     maxAge: 17,
     engagementType: "employment",
+    hasFixedSchedule: true,
     startDateTime: "2026-04-22T12:00:00.000Z",
     durationHours: 2,
     weeklyHoursExpected: 6,
@@ -175,6 +205,11 @@ export const demoTasks: Task[] = [
     title: "Помощь на регистрации гостей",
     description:
       "Поиск фамилии в списке, выдача бейджа и буклета. Работа за столом, наставник рядом в первый час смены.",
+    whatToDo:
+      "Искать фамилию гостя в списке на ресепшене, выдавать бейдж и буклет, направлять в зал.",
+    completionCriteria:
+      "Все гости из списка зарегистрированы без очередей дольше 5 минут, бейджи выданы верным людям.",
+    contactPerson: "Светлана, координатор регистрации — встретит у стойки за 30 минут до начала, контакты в чате.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "events",
@@ -190,6 +225,7 @@ export const demoTasks: Task[] = [
     minAge: 15,
     maxAge: 17,
     engagementType: "employment",
+    hasFixedSchedule: true,
     startDateTime: "2026-04-23T10:00:00.000Z",
     durationHours: 3,
     weeklyHoursExpected: 8,
@@ -208,6 +244,11 @@ export const demoTasks: Task[] = [
     title: "Доставка пакета между офисами",
     description:
       "Пешком и на метро один перегон, конверт до формата А4. Встреча у курьера в холле, фото подтверждения в мессенджер.",
+    whatToDo:
+      "Забрать конверт у курьера в холле первого офиса, довезти до второго офиса и передать под подпись.",
+    completionCriteria:
+      "Конверт передан адресату лично, в чат отправлены фото момента передачи и подписи в журнале.",
+    contactPerson: "Павел, офис-менеджер — выдаст конверт в холле, контакты получателя придут в чат перед стартом.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "delivery",
@@ -223,6 +264,7 @@ export const demoTasks: Task[] = [
     minAge: 14,
     maxAge: 17,
     engagementType: "self_employed",
+    hasFixedSchedule: false,
     startDateTime: "2026-04-24T11:00:00.000Z",
     durationHours: 3,
     weeklyHoursExpected: 9,
@@ -241,6 +283,11 @@ export const demoTasks: Task[] = [
     title: "Сбор контактов на стойке бренда",
     description:
       "Заполнение короткой анкеты на планшете, только согласие гостей. Смена 3 часа с двумя перерывами, инструктаж на месте.",
+    whatToDo:
+      "Предлагать гостям ТРК заполнить короткую анкету на планшете и получить согласие на рассылку.",
+    completionCriteria:
+      "Собрано не меньше 40 согласий за смену, в каждой анкете заполнены все обязательные поля.",
+    contactPerson: "Юлия, бренд-менеджер — встретит у стойки, контакты придут в чат за день до смены.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "promo",
@@ -256,6 +303,7 @@ export const demoTasks: Task[] = [
     minAge: 16,
     maxAge: 17,
     engagementType: "employment",
+    hasFixedSchedule: true,
     startDateTime: "2026-04-27T11:00:00.000Z",
     durationHours: 3,
     weeklyHoursExpected: 8,
@@ -274,6 +322,11 @@ export const demoTasks: Task[] = [
     title: "Наклейка стикеров на раздатку",
     description:
       "Аккуратно наклеить брендированные наклейки на пакеты с буклетами. Работа за столом, объём на смену до 200 штук.",
+    whatToDo:
+      "Аккуратно клеить брендированные стикеры на пакеты с буклетами по образцу — ровно по центру, без пузырей.",
+    completionCriteria:
+      "Обработано не меньше 200 пакетов за смену, стикеры наклеены ровно, бракованные отложены отдельно.",
+    contactPerson: "Ксения, координатор партии — будет рядом весь день, контакт придёт в чат после отклика.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "promo",
@@ -289,6 +342,7 @@ export const demoTasks: Task[] = [
     minAge: 14,
     maxAge: 17,
     engagementType: "employment",
+    hasFixedSchedule: false,
     startDateTime: "2026-04-28T12:00:00.000Z",
     durationHours: 2,
     weeklyHoursExpected: 5,
@@ -307,6 +361,11 @@ export const demoTasks: Task[] = [
     title: "Сопровождение группы на экскурсии",
     description:
       "Считать головы при входе/выходе, держать флажок, помогать педагогу. Без самостоятельных решений по маршруту.",
+    whatToDo:
+      "Считать детей при входе и выходе из залов, держать табличку группы и помогать педагогу не терять отстающих.",
+    completionCriteria:
+      "Группа возвращается в полном составе на каждой точке сбора, педагог подтверждает, что всё прошло штатно.",
+    contactPerson: "Татьяна, педагог-сопровождающий — будет рядом всю экскурсию, телефон придёт в чат.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "events",
@@ -322,6 +381,7 @@ export const demoTasks: Task[] = [
     minAge: 15,
     maxAge: 17,
     engagementType: "employment",
+    hasFixedSchedule: true,
     startDateTime: "2026-04-29T10:00:00.000Z",
     durationHours: 4,
     weeklyHoursExpected: 12,
@@ -340,6 +400,11 @@ export const demoTasks: Task[] = [
     title: "Помощник на мастер-классе для детей",
     description:
       "Раздать материалы, собрать работы после блока, мыть руки перед контактом с едой. Организатор ведёт программу.",
+    whatToDo:
+      "Раздать материалы по списку перед стартом, помогать детям во время занятия и собрать готовые работы в конце блока.",
+    completionCriteria:
+      "Материалы выданы всем участникам, работы собраны и подписаны именами детей, рабочее место убрано.",
+    contactPerson: "Мария, организатор мастер-класса — ведёт программу рядом, контакты в чате после отклика.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "events",
@@ -356,6 +421,7 @@ export const demoTasks: Task[] = [
     minAge: 16,
     maxAge: 17,
     engagementType: "employment",
+    hasFixedSchedule: true,
     startDateTime: "2026-04-30T11:00:00.000Z",
     durationHours: 4,
     weeklyHoursExpected: 12,
@@ -374,6 +440,11 @@ export const demoTasks: Task[] = [
     title: "Оформление простых сторис по шаблону",
     description:
       "Три кадра в Canva по готовому макету: заменить текст и фото, экспорт PNG. Проверка куратором в тот же день.",
+    whatToDo:
+      "Открыть готовый шаблон в Canva, заменить текст и фото на присланные материалы и экспортировать три PNG-кадра.",
+    completionCriteria:
+      "Три кадра соответствуют шаблону по размеру и шрифтам, файлы названы по образцу и загружены в папку проверки.",
+    contactPerson: "Игорь, куратор контента — проверит работы в день сдачи, напишет в чат после отклика.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "creative",
@@ -388,6 +459,7 @@ export const demoTasks: Task[] = [
     minAge: 14,
     maxAge: 17,
     engagementType: "self_employed",
+    hasFixedSchedule: false,
     startDateTime: "2026-05-04T13:00:00.000Z",
     durationHours: 2,
     weeklyHoursExpected: 6,
@@ -406,6 +478,11 @@ export const demoTasks: Task[] = [
     title: "Разбор стульев после мероприятия",
     description:
       "Сложить стулья в тележки и отвезти в склад на том же этаже. Работа в команде, куратор показывает маршрут один раз.",
+    whatToDo:
+      "Сложить стулья в тележки по 10 штук и отвезти их на склад этажом ниже по показанному маршруту.",
+    completionCriteria:
+      "Все стулья со схемы зала перенесены на склад и расставлены вдоль стены, проходы в зале свободны.",
+    contactPerson: "Сергей, технический координатор — покажет маршрут один раз в начале смены.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "events",
@@ -421,6 +498,7 @@ export const demoTasks: Task[] = [
     minAge: 14,
     maxAge: 17,
     engagementType: "employment",
+    hasFixedSchedule: true,
     startDateTime: "2026-04-15T11:00:00.000Z",
     durationHours: 2,
     weeklyHoursExpected: 4,
@@ -439,6 +517,11 @@ export const demoTasks: Task[] = [
     title: "Перевод короткого текста для листовки",
     description:
       "Около 400 знаков с пробелами, глоссарий вышлем. Срок сдачи вечером того же дня, одна итерация правок от редактора.",
+    whatToDo:
+      "Перевести присланный текст листовки (≈400 знаков) на английский, используя прикреплённый глоссарий терминов.",
+    completionCriteria:
+      "Перевод сдан до вечера в указанном формате, термины из глоссария использованы без отклонений.",
+    contactPerson: "Елена, редактор — пришлёт текст и глоссарий, проверит и даст одну итерацию правок.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "creative",
@@ -453,6 +536,7 @@ export const demoTasks: Task[] = [
     minAge: 16,
     maxAge: 17,
     engagementType: "self_employed",
+    hasFixedSchedule: false,
     startDateTime: "2026-04-16T12:00:00.000Z",
     durationHours: 2,
     weeklyHoursExpected: 6,
@@ -471,6 +555,11 @@ export const demoTasks: Task[] = [
     title: "Курьер: мелкий пакет между точками",
     description:
       "Забрать запечатанный пакет у администратора, доставить по адресу в пределах 30 минут пешком и метро без пересадок.",
+    whatToDo:
+      "Забрать запечатанный пакет у администратора по указанному адресу и передать его получателю по второму адресу.",
+    completionCriteria:
+      "Пакет передан получателю лично в течение 30 минут, в чат отправлены подтверждающее фото и время передачи.",
+    contactPerson: "Роман, администратор пункта выдачи — передаст пакет и адрес получателя перед стартом смены.",
     employerId: "u2",
     employerName: "ООО Ивент Плюс",
     category: "delivery",
@@ -486,6 +575,7 @@ export const demoTasks: Task[] = [
     minAge: 15,
     maxAge: 17,
     engagementType: "employment",
+    hasFixedSchedule: false,
     startDateTime: "2026-04-17T10:00:00.000Z",
     durationHours: 2,
     weeklyHoursExpected: 5,

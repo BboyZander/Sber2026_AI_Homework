@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Task } from "@/types/task";
 import {
@@ -24,9 +25,15 @@ import { formatDate } from "@/lib/helpers";
 import { currentMinorPeriod, getMinorComplianceResult } from "@/lib/minor-compliance";
 import { getTeenProfile, PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-store";
 import { formatTaskAgeRange, taskHasDefinedAgeRange, teenCanRespondByAge } from "@/lib/task-age";
-import { taskPaymentTeenEstimatedTotalLine, taskPaymentTeenPrimaryLine } from "@/lib/task-payment";
+import {
+  taskHourlyEarningsBreakdown,
+  taskPaymentTeenEstimatedTotalLine,
+  taskPaymentTeenPrimaryLine,
+} from "@/lib/task-payment";
+import { computeTaskFitReasons } from "@/lib/teen-task-fit";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TEEN_CONFIRM, TEEN_TOASTS } from "@/lib/ui-copy";
+import type { TeenProfile } from "@/types/user";
 
 export function TeenTaskDetailView({
   task,
@@ -36,13 +43,12 @@ export function TeenTaskDetailView({
   employerTagline: string;
 }) {
   const reduceMotion = useReducedMotion();
+  const router = useRouter();
   const [applied, setApplied] = useState(false);
   const [applyBusy, setApplyBusy] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [teenAge, setTeenAge] = useState<number | undefined>(() => {
-    const a = getTeenProfile().age;
-    return typeof a === "number" && Number.isFinite(a) ? a : undefined;
-  });
+  const [teenProfile, setTeenProfile] = useState<TeenProfile>(() => getTeenProfile());
+  const teenAge = typeof teenProfile.age === "number" && Number.isFinite(teenProfile.age) ? teenProfile.age : undefined;
 
   const liveCompliance = useMemo(
     () =>
@@ -81,17 +87,18 @@ export function TeenTaskDetailView({
   const applyAllowed = ageOk && !complianceBlocked;
 
   useEffect(() => {
-    function syncAge() {
-      const a = getTeenProfile().age;
-      setTeenAge(typeof a === "number" && Number.isFinite(a) ? a : undefined);
+    function syncProfile() {
+      setTeenProfile(getTeenProfile());
     }
     function onProfile(e: Event) {
       const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
-      if (d?.role === "teen") syncAge();
+      if (d?.role === "teen") syncProfile();
     }
     window.addEventListener(PROFILE_UPDATED_EVENT, onProfile);
     return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
   }, []);
+
+  const fitReasons = useMemo(() => computeTaskFitReasons(task, teenProfile), [task, teenProfile]);
 
   const syncApplied = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -151,6 +158,14 @@ export function TeenTaskDetailView({
     syncApplied();
   }
 
+  function handleBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/teen/dashboard");
+    }
+  }
+
   const ctaLabel = applied
     ? "Отклик отправлен"
     : applyBusy
@@ -194,13 +209,18 @@ export function TeenTaskDetailView({
 
   const payPrimary = taskPaymentTeenPrimaryLine(task);
   const payExtra = taskPaymentTeenEstimatedTotalLine(task);
+  const earnings = taskHourlyEarningsBreakdown(task);
 
   const summaryRows = [
     { label: "Оплата", value: payPrimary, accent: true as const },
-    ...(payExtra ? [{ label: "Ориентир", value: payExtra, accent: false as const }] : []),
     { label: "Опыт", value: `+${task.rewardXp} XP`, accent: false as const },
     { label: "Формат", value: WORK_FORMAT_LABELS[task.workFormat], accent: false as const },
     { label: "Длительность", value: task.durationLabel, accent: false as const },
+    {
+      label: "График",
+      value: task.hasFixedSchedule ? "Время задано точно" : "Гибкий — успеть к сроку",
+      accent: false as const,
+    },
     {
       label: "Занятость",
       value: DURATION_BUCKET_LABELS[task.durationBucket],
@@ -274,6 +294,17 @@ export function TeenTaskDetailView({
   return (
     <div className="pb-28 lg:pb-0">
       <div className="mx-auto max-w-5xl">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-sub no-underline transition hover:text-accent-bright"
+        >
+          <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+          </svg>
+          Назад
+        </button>
+
         <div className="mb-6 flex flex-wrap items-center gap-2">
           <StatusBadge kind="task" status={task.status} />
           <span className="rounded-lg border border-edge bg-panel-muted/50 px-2.5 py-1 text-xs font-medium text-sub">
@@ -323,12 +354,68 @@ export function TeenTaskDetailView({
 
         <div className="mt-8 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-8">
           <div className="min-w-0 space-y-8">
+            {fitReasons.length > 0 ? (
+              <section className="ui-card border-accent/20 bg-accent-soft">
+                <h2 className="m-0 text-sm font-semibold uppercase tracking-wider text-accent-bright">
+                  Почему подходит тебе
+                </h2>
+                <ul className="m-0 mt-3 space-y-2 list-none p-0">
+                  {fitReasons.map((reason) => (
+                    <li key={reason.id} className="flex items-start gap-2 text-sm leading-relaxed text-ink">
+                      <span aria-hidden="true">{reason.icon}</span>
+                      <span>{reason.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {earnings ? (
+              <section className="ui-card border-edge">
+                <h2 className="m-0 text-sm font-semibold uppercase tracking-wider text-sub">
+                  Сколько можно заработать
+                </h2>
+                <dl className="mt-3 space-y-2">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-sm text-sub">Ставка</dt>
+                    <dd className="m-0 text-sm font-medium text-ink">{earnings.rateLine}</dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-sm text-sub">Время на смену</dt>
+                    <dd className="m-0 text-sm font-medium text-ink">{earnings.hoursLine}</dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3 border-t border-edge pt-2">
+                    <dt className="text-sm font-medium text-sub">Итого за смену</dt>
+                    <dd className="m-0 text-lg font-bold text-accent">{earnings.totalLine}</dd>
+                  </div>
+                </dl>
+              </section>
+            ) : null}
+
             <section>
               <h2 className="m-0 text-sm font-semibold uppercase tracking-wider text-sub">
                 Описание
               </h2>
               <p className="mt-3 m-0 text-base leading-relaxed text-sub">{task.description}</p>
             </section>
+
+            {task.whatToDo ? (
+              <section className="ui-card border-edge">
+                <h2 className="m-0 text-sm font-semibold uppercase tracking-wider text-sub">
+                  Что делать
+                </h2>
+                <p className="mt-2 m-0 text-base leading-relaxed text-ink">{task.whatToDo}</p>
+              </section>
+            ) : null}
+
+            {task.completionCriteria ? (
+              <section className="ui-card border-edge">
+                <h2 className="m-0 text-sm font-semibold uppercase tracking-wider text-sub">
+                  Что считается выполнением
+                </h2>
+                <p className="mt-2 m-0 text-base leading-relaxed text-ink">{task.completionCriteria}</p>
+              </section>
+            ) : null}
 
             {task.location ? (
               <section className="ui-card border-edge">
@@ -357,6 +444,12 @@ export function TeenTaskDetailView({
                 </Link>
               </p>
               <p className="mt-2 m-0 text-sm leading-relaxed text-sub">{employerTagline}</p>
+              {task.contactPerson ? (
+                <p className="mt-3 m-0 text-sm leading-relaxed text-ink">
+                  <span className="font-medium text-sub">По вопросам: </span>
+                  {task.contactPerson}
+                </p>
+              ) : null}
               <p className="mt-3 m-0">
                 <Link
                   href={`/teen/employer/${task.employerId}`}

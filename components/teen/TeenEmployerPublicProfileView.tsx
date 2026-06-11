@@ -83,7 +83,7 @@ export function TeenEmployerPublicProfileView({ employerId }: { employerId: stri
   return (
     <div className="mx-auto max-w-2xl">
       <Link
-        href="/teen/tasks"
+        href="/teen/dashboard"
         className="inline-block text-sm font-medium text-accent underline-offset-2 hover:text-accent-bright hover:underline"
       >
         ← К каталогу задач

@@ -98,6 +98,13 @@ export const DURATION_BUCKET_LABELS: Record<DurationBucket, string> = {
   long: "Длинная",
 };
 
+export const TASK_PAYMENT_TYPES = ["fixed", "hourly"] as const;
+export type TaskPaymentTypeFilter = (typeof TASK_PAYMENT_TYPES)[number];
+export const PAYMENT_TYPE_LABELS: Record<TaskPaymentTypeFilter, string> = {
+  fixed: "Фикс. оплата",
+  hourly: "Почасовая",
+};
+
 export const ENGAGEMENT_TYPES = ["employment", "self_employed"] as const;
 export type EngagementType = (typeof ENGAGEMENT_TYPES)[number];
 export const ENGAGEMENT_TYPE_LABELS: Record<EngagementType, string> = {

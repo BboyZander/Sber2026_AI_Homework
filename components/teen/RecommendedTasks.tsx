@@ -1,30 +1,22 @@
-import Link from "next/link";
 import { demoTasks } from "@/data/demo-tasks";
-import { TaskCard } from "@/components/shared/TaskCard";
 import { SectionTitle } from "@/components/shared/SectionTitle";
+import { TeenCatalogTaskCard } from "@/components/teen/TeenCatalogTaskCard";
 
 export function RecommendedTasks() {
   const published = demoTasks.filter((t) => t.status === "open").slice(0, 3);
 
+  if (published.length === 0) return null;
+
   return (
     <section>
-      <SectionTitle
-        title="Рекомендуемые задачи"
-        action={
-          <Link
-            href="/teen/tasks"
-            className="text-sm font-medium text-accent transition hover:text-accent-bright no-underline hover:no-underline"
-          >
-            Все задачи →
-          </Link>
-        }
-      />
-      <div className="stack">
+      <SectionTitle title="Рекомендуем тебе" />
+      <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:gap-4 lg:grid-cols-3">
         {published.map((task) => (
-          <TaskCard key={task.id} task={task} href={`/teen/tasks/${task.id}`} />
+          <li key={task.id} className="min-w-0">
+            <TeenCatalogTaskCard task={task} />
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
-

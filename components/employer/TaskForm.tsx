@@ -41,6 +41,9 @@ const DEFAULT_MAX_TEEN_AGE = 17;
 type FormData = {
   title: string;
   description: string;
+  whatToDo: string;
+  completionCriteria: string;
+  contactPerson: string;
   category: TaskCategory;
   workFormat: WorkFormat;
   location: string;
@@ -51,6 +54,7 @@ type FormData = {
   estimatedHours: string;
   minAge: string;
   engagementType: EngagementType;
+  hasFixedSchedule: boolean;
   duringSchoolPeriodAllowed: boolean;
   duringVacationAllowed: boolean;
   requiresMedicalExam: boolean;
@@ -70,6 +74,9 @@ type AddressSuggestion = {
 const initialForm: FormData = {
   title: "",
   description: "",
+  whatToDo: "",
+  completionCriteria: "",
+  contactPerson: "",
   category: "other",
   workFormat: "offline",
   location: "",
@@ -80,6 +87,7 @@ const initialForm: FormData = {
   estimatedHours: "",
   minAge: "14",
   engagementType: "self_employed",
+  hasFixedSchedule: true,
   duringSchoolPeriodAllowed: true,
   duringVacationAllowed: true,
   requiresMedicalExam: false,
@@ -128,6 +136,9 @@ function taskSourceToFormData(src: Task): FormData {
   return {
     title: src.title,
     description: src.description,
+    whatToDo: src.whatToDo,
+    completionCriteria: src.completionCriteria,
+    contactPerson: src.contactPerson,
     category: src.category,
     workFormat: src.workFormat,
     location: src.location ?? "",
@@ -142,6 +153,7 @@ function taskSourceToFormData(src: Task): FormData {
     minAge:
       typeof src.minAge === "number" ? String(Math.min(17, Math.max(14, src.minAge))) : "14",
     engagementType: src.engagementType,
+    hasFixedSchedule: src.hasFixedSchedule,
     duringSchoolPeriodAllowed: src.duringSchoolPeriodAllowed,
     duringVacationAllowed: src.duringVacationAllowed,
     requiresMedicalExam: src.requiresMedicalExam,
@@ -171,6 +183,10 @@ function buildEmployerTaskPayload(
   const h = Number(values.estimatedHours.replace(",", "."));
   const title = values.title.trim() || "Черновик задачи";
   const description = values.description.trim() || "Описание будет добавлено позже.";
+  const whatToDo = values.whatToDo.trim() || "Уточняется — спросите у работодателя при отклике.";
+  const completionCriteria =
+    values.completionCriteria.trim() || "Уточняется — спросите у работодателя при отклике.";
+  const contactPerson = values.contactPerson.trim() || "Контакт придёт в чат после отклика.";
   const durationHoursRaw = resolvedDurationHours(values);
   const durationHours =
     durationHoursRaw > 0 ? durationHoursRaw : status === "draft" ? 1 : durationHoursRaw;
@@ -182,6 +198,9 @@ function buildEmployerTaskPayload(
   return {
     title,
     description,
+    whatToDo,
+    completionCriteria,
+    contactPerson,
     category: values.category,
     paymentType: values.paymentType,
     paymentAmount:
@@ -199,6 +218,7 @@ function buildEmployerTaskPayload(
     minAge: Number.isFinite(Number(values.minAge)) ? Number(values.minAge) : undefined,
     maxAge: DEFAULT_MAX_TEEN_AGE,
     engagementType: values.engagementType,
+    hasFixedSchedule: values.hasFixedSchedule,
     startDateTime: deadlineIso,
     durationHours,
     weeklyHoursExpected: durationHours,
@@ -241,6 +261,15 @@ function validateField(field: keyof FormData, values: FormData): string | undefi
   }
   if (field === "description") {
     if (desc.length < 20) return "Описание — от 20 символов.";
+  }
+  if (field === "whatToDo") {
+    if (values.whatToDo.trim().length < 10) return "Опишите, что делать — от 10 символов.";
+  }
+  if (field === "completionCriteria") {
+    if (values.completionCriteria.trim().length < 10) return "Укажите, по чему поймут, что задача выполнена.";
+  }
+  if (field === "contactPerson") {
+    if (values.contactPerson.trim().length < 3) return "Укажите, к кому обращаться по вопросам.";
   }
   if (field === "location") {
     if (values.workFormat === "online") return undefined;
@@ -297,6 +326,9 @@ function validateAll(values: FormData): FormErrors {
   const fields: Array<keyof FormData> = [
     "title",
     "description",
+    "whatToDo",
+    "completionCriteria",
+    "contactPerson",
     "location",
     "durationLabel",
     "fixedPayRub",
@@ -672,6 +704,44 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
             />
             <FieldError text={errors.description} />
           </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-sub">Что делать</span>
+            <textarea
+              value={values.whatToDo}
+              onChange={(e) => setField("whatToDo", e.target.value)}
+              onBlur={() => onBlurField("whatToDo")}
+              rows={2}
+              placeholder="Конкретные шаги: что именно нужно сделать руками."
+              className="w-full resize-none rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
+            />
+            <FieldError text={errors.whatToDo} />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-sub">Что считается выполнением</span>
+            <textarea
+              value={values.completionCriteria}
+              onChange={(e) => setField("completionCriteria", e.target.value)}
+              onBlur={() => onBlurField("completionCriteria")}
+              rows={2}
+              placeholder="По каким признакам подросток поймёт, что задача закрыта."
+              className="w-full resize-none rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
+            />
+            <FieldError text={errors.completionCriteria} />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-sub">Контактное лицо</span>
+            <input
+              value={values.contactPerson}
+              onChange={(e) => setField("contactPerson", e.target.value)}
+              onBlur={() => onBlurField("contactPerson")}
+              placeholder="Имя и роль — как и когда с вами связаться по вопросам."
+              className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2"
+            />
+            <FieldError text={errors.contactPerson} />
+          </label>
         </section>
 
         <section className="ui-card space-y-4">
@@ -973,6 +1043,39 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
               />
               <FieldError text={errors.deadlineTime} />
             </label>
+          </div>
+
+          <div>
+            <span className="mb-2 block text-sm font-medium text-sub">График работы</span>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { id: true as const, label: "Время задано точно" },
+                  { id: false as const, label: "Гибкий график — успеть к сроку" },
+                ] as const
+              ).map((opt) => {
+                const active = values.hasFixedSchedule === opt.id;
+                return (
+                  <button
+                    key={String(opt.id)}
+                    type="button"
+                    onClick={() => setField("hasFixedSchedule", opt.id)}
+                    className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                      active
+                        ? "border-accent/50 bg-accent-soft text-accent-bright ring-1 ring-accent/30"
+                        : "border-edge bg-panel text-sub hover:border-edge-strong hover:text-ink"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="m-0 mt-1.5 text-xs leading-relaxed text-sub-deep">
+              {values.hasFixedSchedule
+                ? "Подросток должен явиться к указанному времени начала."
+                : "Подросток сам выбирает, когда выполнить задачу — главное успеть к сроку."}
+            </p>
           </div>
 
           <div className="block max-w-md">

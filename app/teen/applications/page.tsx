@@ -3,7 +3,7 @@ import { TeenApplicationsView } from "@/components/teen/TeenApplicationsView";
 
 export default function TeenApplicationsPage() {
   return (
-    <AppShell variant="teen" title="Отклики">
+    <AppShell variant="teen" title="В работе">
       <TeenApplicationsView />
     </AppShell>
   );

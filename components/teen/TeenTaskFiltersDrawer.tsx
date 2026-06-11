@@ -1,33 +1,68 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useEffect } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   CATEGORY_LABELS,
-  DURATION_BUCKET_LABELS,
+  PAYMENT_TYPE_LABELS,
   TASK_CATEGORIES,
+  TASK_PAYMENT_TYPES,
   WORK_FORMAT_LABELS,
-  type DurationBucket,
   type TaskCategory,
   type WorkFormat,
 } from "@/lib/constants";
-import type { TeenCatalogAgeFit, TeenCatalogPaySort } from "@/lib/teen-task-catalog-filter";
+import { maxShiftHoursForTeenAge } from "@/lib/minor-compliance";
+import type {
+  TeenCatalogAgeFit,
+  TeenCatalogPaymentFilter,
+  TeenCatalogSchedule,
+  TeenCatalogSort,
+  TeenCatalogWeekday,
+} from "@/lib/teen-task-catalog-filter";
 
 export type DrawerFilterState = {
   ageFitMode: TeenCatalogAgeFit;
   category: TaskCategory | null;
   workFormat: WorkFormat | "all";
-  duration: DurationBucket | "all";
-  paySort: TeenCatalogPaySort;
+  /** «До скольких часов ищу подработку» (F2.3); null — без ограничения. */
+  maxDurationHours: number | null;
+  paymentType: TeenCatalogPaymentFilter;
+  weekday: TeenCatalogWeekday;
+  /** Время задано точно / гибкий график (F2.6). */
+  schedule: TeenCatalogSchedule;
+  sort: TeenCatalogSort;
 };
 
 export const teenCatalogDrawerDefaults: DrawerFilterState = {
   ageFitMode: "all",
   category: null,
   workFormat: "all",
-  duration: "all",
-  paySort: "none",
+  maxDurationHours: null,
+  paymentType: "all",
+  weekday: "all",
+  schedule: "all",
+  sort: "recommended",
 };
+
+const SORT_OPTIONS: { value: TeenCatalogSort; label: string }[] = [
+  { value: "recommended", label: "Рекомендуем" },
+  { value: "pay_high", label: "Сначала дороже" },
+  { value: "pay_low", label: "Сначала дешевле" },
+  { value: "new", label: "Сначала новые" },
+  { value: "soonest", label: "Ближайшие по дате" },
+];
+
+const WEEKDAY_OPTIONS: { value: TeenCatalogWeekday; label: string }[] = [
+  { value: "all", label: "Любой" },
+  { value: "weekday", label: "Будни" },
+  { value: "weekend", label: "Выходные" },
+];
+
+const SCHEDULE_OPTIONS: { value: TeenCatalogSchedule; label: string }[] = [
+  { value: "all", label: "Любой" },
+  { value: "fixed", label: "Время задано" },
+  { value: "flexible", label: "Гибкий график" },
+];
 
 function Chip({
   active,
@@ -56,6 +91,88 @@ function Chip({
     >
       {children}
     </button>
+  );
+}
+
+/** Свободный фильтр длительности (F2.3): «до скольких часов ищу подработку», с лимитом по возрасту (ТК РФ). */
+function DurationHoursFilter({
+  value,
+  onChange,
+  teenAge,
+  disabled,
+}: {
+  value: number | null;
+  onChange: (next: number | null) => void;
+  teenAge?: number;
+  disabled?: boolean;
+}) {
+  const inputId = useId();
+  const legalMax = maxShiftHoursForTeenAge(teenAge);
+  const [draftText, setDraftText] = useState(value === null ? "" : String(value));
+  const [warning, setWarning] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraftText(value === null ? "" : String(value));
+  }, [value]);
+
+  function commit(raw: string) {
+    const trimmed = raw.trim().replace(",", ".");
+    if (!trimmed) {
+      setWarning(null);
+      onChange(null);
+      return;
+    }
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setWarning(null);
+      setDraftText("");
+      onChange(null);
+      return;
+    }
+    if (parsed > legalMax) {
+      setWarning(
+        `По закону смена для твоего возраста не может быть длиннее ${legalMax} ч — показываем подработки в этих пределах.`,
+      );
+      setDraftText(String(legalMax));
+      onChange(legalMax);
+      return;
+    }
+    setWarning(null);
+    onChange(parsed);
+  }
+
+  return (
+    <div className="w-full">
+      <label htmlFor={inputId} className="mb-1.5 block text-xs text-sub">
+        До скольких часов в смену ищу подработку
+      </label>
+      <div className="flex items-center gap-2">
+        <input
+          id={inputId}
+          type="number"
+          inputMode="decimal"
+          min={1}
+          max={legalMax}
+          step={0.5}
+          placeholder={`напр. 2`}
+          value={draftText}
+          disabled={disabled}
+          onChange={(e) => setDraftText(e.target.value)}
+          onBlur={(e) => commit(e.target.value)}
+          className="w-24 rounded-lg border border-edge bg-panel px-3 py-1.5 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2 disabled:opacity-50"
+        />
+        <span className="text-xs text-sub-deep">часов</span>
+      </div>
+      {warning ? (
+        <p className="m-0 mt-1.5 text-xs leading-relaxed text-rose-300">{warning}</p>
+      ) : (
+        <p className="m-0 mt-1.5 text-xs leading-relaxed text-sub-deep">
+          {typeof teenAge === "number"
+            ? `По Трудовому кодексу для твоего возраста смена не длиннее ${legalMax} ч — выше выбрать не получится.`
+            : "Лимит зависит от возраста (4–7 ч по ТК РФ): укажи его в профиле — посчитаем точнее."}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -227,71 +344,76 @@ export function TeenTaskFiltersDrawer({
               </Section>
 
               <Section title="Длительность">
-                <Chip
-                  active={draft.duration === "all"}
+                <DurationHoursFilter
+                  value={draft.maxDurationHours}
+                  onChange={(next) => setDraft((d) => ({ ...d, maxDurationHours: next }))}
+                  teenAge={teenAge}
                   disabled={disabled}
-                  onClick={() => setDraft((d) => ({ ...d, duration: "all" }))}
-                >
-                  Все
-                </Chip>
-                <Chip
-                  active={draft.duration === "short"}
-                  disabled={disabled}
-                  onClick={() =>
-                    setDraft((d) => ({
-                      ...d,
-                      duration: d.duration === "short" ? "all" : "short",
-                    }))
-                  }
-                >
-                  {DURATION_BUCKET_LABELS.short}
-                </Chip>
-                <Chip
-                  active={draft.duration === "long"}
-                  disabled={disabled}
-                  onClick={() =>
-                    setDraft((d) => ({
-                      ...d,
-                      duration: d.duration === "long" ? "all" : "long",
-                    }))
-                  }
-                >
-                  {DURATION_BUCKET_LABELS.long}
-                </Chip>
+                />
               </Section>
 
-              <Section title="Сортировка по оплате">
+              <Section title="День недели">
+                {WEEKDAY_OPTIONS.map((opt) => (
+                  <Chip
+                    key={opt.value}
+                    active={draft.weekday === opt.value}
+                    disabled={disabled}
+                    onClick={() => setDraft((d) => ({ ...d, weekday: opt.value }))}
+                  >
+                    {opt.label}
+                  </Chip>
+                ))}
+              </Section>
+
+              <Section title="График работы">
+                {SCHEDULE_OPTIONS.map((opt) => (
+                  <Chip
+                    key={opt.value}
+                    active={draft.schedule === opt.value}
+                    disabled={disabled}
+                    onClick={() => setDraft((d) => ({ ...d, schedule: opt.value }))}
+                  >
+                    {opt.label}
+                  </Chip>
+                ))}
+              </Section>
+
+              <Section title="Вид оплаты">
                 <Chip
-                  active={draft.paySort === "none"}
+                  active={draft.paymentType === "all"}
                   disabled={disabled}
-                  onClick={() => setDraft((d) => ({ ...d, paySort: "none" }))}
+                  onClick={() => setDraft((d) => ({ ...d, paymentType: "all" }))}
                 >
-                  По умолчанию
+                  Любой
                 </Chip>
-                <Chip
-                  active={draft.paySort === "high"}
-                  disabled={disabled}
-                  onClick={() =>
-                    setDraft((d) => ({
-                      ...d,
-                      paySort: d.paySort === "high" ? "none" : "high",
-                    }))
-                  }
-                >
-                  Сначала выше оплата
-                </Chip>
-                <Chip
-                  active={draft.paySort === "low"}
-                  disabled={disabled}
-                  onClick={() =>
-                    setDraft((d) => ({
-                      ...d,
-                      paySort: d.paySort === "low" ? "none" : "low",
-                    }))
-                  }
-                >
-                  Сначала ниже оплата
-                </Chip>
+                {TASK_PAYMENT_TYPES.map((pt) => (
+                  <Chip
+                    key={pt}
+                    active={draft.paymentType === pt}
+                    disabled={disabled}
+                    onClick={() =>
+                      setDraft((d) => ({
+                        ...d,
+                        paymentType: d.paymentType === pt ? "all" : pt,
+                      }))
+                    }
+                  >
+                    {PAYMENT_TYPE_LABELS[pt]}
+                  </Chip>
+                ))}
+              </Section>
+
+              <Section title="Сортировка">
+                {SORT_OPTIONS.map((opt) => (
+                  <Chip
+                    key={opt.value}
+                    active={draft.sort === opt.value}
+                    disabled={disabled}
+                    onClick={() => setDraft((d) => ({ ...d, sort: opt.value }))}
+                  >
+                    {opt.label}
+                  </Chip>
+                ))}
               </Section>
             </div>
 

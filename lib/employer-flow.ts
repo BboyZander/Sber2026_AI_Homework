@@ -30,6 +30,9 @@ export { EMPLOYER_TASKS_EVENT, EMPLOYER_TASKS_EXTRA_KEY } from "@/lib/employer-t
 export type EmployerTaskPayload = {
   title: string;
   description: string;
+  whatToDo: string;
+  completionCriteria: string;
+  contactPerson: string;
   category: Task["category"];
   workFormat: Task["workFormat"];
   durationBucket: Task["durationBucket"];
@@ -42,6 +45,7 @@ export type EmployerTaskPayload = {
   minAge?: number;
   maxAge?: number;
   engagementType: EngagementType;
+  hasFixedSchedule: boolean;
   startDateTime: string;
   durationHours: number;
   weeklyHoursExpected: number;
@@ -60,6 +64,9 @@ export type EmployerTaskPatch = Partial<
     Task,
     | "title"
     | "description"
+    | "whatToDo"
+    | "completionCriteria"
+    | "contactPerson"
     | "category"
     | "workFormat"
     | "durationBucket"
@@ -73,6 +80,7 @@ export type EmployerTaskPatch = Partial<
     | "minAge"
     | "maxAge"
     | "engagementType"
+    | "hasFixedSchedule"
     | "startDateTime"
     | "durationHours"
     | "weeklyHoursExpected"
@@ -176,6 +184,9 @@ export function publishTask(payload: EmployerTaskPayload): Task {
     employerName,
     title: payload.title.trim(),
     description: payload.description.trim(),
+    whatToDo: payload.whatToDo.trim(),
+    completionCriteria: payload.completionCriteria.trim(),
+    contactPerson: payload.contactPerson.trim(),
     category: payload.category,
     status: payload.status ?? "open",
     rewardXp: 80,
@@ -190,6 +201,7 @@ export function publishTask(payload: EmployerTaskPayload): Task {
     minAge: payload.minAge,
     maxAge: payload.maxAge,
     engagementType: payload.engagementType,
+    hasFixedSchedule: payload.hasFixedSchedule,
     startDateTime: payload.startDateTime,
     durationHours: payload.durationHours,
     weeklyHoursExpected: payload.weeklyHoursExpected,

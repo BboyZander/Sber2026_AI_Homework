@@ -1,10 +1,6 @@
-import { AppShell } from "@/components/shared/AppShell";
-import { TeenTasksCatalogView } from "@/components/teen/TeenTasksCatalogView";
+import { redirect } from "next/navigation";
 
+/** Каталог переехал на Главную (маркетплейс). Оставляем редирект для старых ссылок. */
 export default function TeenTasksPage() {
-  return (
-    <AppShell variant="teen" title="Задачи">
-      <TeenTasksCatalogView />
-    </AppShell>
-  );
+  redirect("/teen/dashboard");
 }

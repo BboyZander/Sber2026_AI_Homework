@@ -23,6 +23,14 @@ function ageGroupForTask(task: Pick<Task, "minAge">): ComplianceAgeGroup {
   return (task.minAge ?? 14) <= 15 ? "14_15" : "16_17";
 }
 
+/** Максимальная продолжительность смены для возраста подростка (закон РФ, ст. 92/94 ТК): 14–15 лет — 4 ч, 16–17 — 7 ч. */
+export function maxShiftHoursForTeenAge(age: number | undefined): number {
+  if (typeof age !== "number" || !Number.isFinite(age) || age >= 16) {
+    return LIMITS["16_17"].maxShiftHours;
+  }
+  return LIMITS["14_15"].maxShiftHours;
+}
+
 function isNightStart(startDateTime: string): boolean {
   const dt = new Date(startDateTime);
   if (Number.isNaN(dt.getTime())) return false;

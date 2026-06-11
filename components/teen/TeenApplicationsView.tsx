@@ -4,10 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ApplicationStatus } from "@/lib/constants";
-import {
-  APPLICATION_STATUSES,
-  APPLICATION_STATUS_LABELS,
-} from "@/lib/constants";
+import { APPLICATION_STATUS_LABELS } from "@/lib/constants";
 import {
   TEEN_APPLICATIONS_EVENT,
   TEEN_APPLICATIONS_EXTRA_KEY,
@@ -20,7 +17,7 @@ import {
   updateApplicationStatus,
   withdrawApplication,
 } from "@/lib/teen-flow";
-import { TEEN_CONFIRM, TEEN_TOASTS } from "@/lib/ui-copy";
+import { TEEN_CONFIRM, TEEN_SAFETY_TIPS, TEEN_TOASTS } from "@/lib/ui-copy";
 import { getTaskByIdForFlow } from "@/lib/employer-flow";
 import { ApplicationCard } from "@/components/teen/ApplicationCard";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -49,6 +46,11 @@ function FilterChip({
     </button>
   );
 }
+
+/** Активная работа (F7.2): принят и ждёт выполнения / ждёт подтверждения. */
+const ACTIVE_STATUSES: ApplicationStatus[] = ["accepted", "submitted"];
+/** История откликов (F7.2): отправлен / отклонён / оплачен. */
+const HISTORY_STATUSES: ApplicationStatus[] = ["applied", "rejected", "paid"];
 
 export function TeenApplicationsView() {
   const [list, setList] = useState<ReturnType<typeof getApplications>>([]);
@@ -80,10 +82,18 @@ export function TeenApplicationsView() {
     };
   }, [refresh]);
 
-  const filtered = useMemo(() => {
-    if (filter === "all") return list;
-    return list.filter((a) => a.status === filter);
-  }, [list, filter]);
+  const active = useMemo(
+    () => list.filter((a) => ACTIVE_STATUSES.includes(a.status)),
+    [list],
+  );
+  const history = useMemo(
+    () => list.filter((a) => HISTORY_STATUSES.includes(a.status)),
+    [list],
+  );
+  const filteredHistory = useMemo(() => {
+    if (filter === "all") return history;
+    return history.filter((a) => a.status === filter);
+  }, [history, filter]);
 
   function resetFilter() {
     setFilter("all");
@@ -118,108 +128,149 @@ export function TeenApplicationsView() {
 
   return (
     <div className="ui-stack">
-      <header>
-        <SectionTitle title="Отклики" />
-        <p className="text-sm text-sub">
-          Все твои отклики в одном месте. После «Откликнуться» карточка сразу появляется здесь.
-        </p>
-      </header>
-
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-sub">Статус</p>
-        <div className="flex flex-wrap gap-2">
-          <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
-            Все ({list.length})
-          </FilterChip>
-          {APPLICATION_STATUSES.map((st) => {
-            const count = list.filter((a) => a.status === st).length;
-            return (
-              <FilterChip key={st} active={filter === st} onClick={() => setFilter(filter === st ? "all" : st)}>
-                {APPLICATION_STATUS_LABELS[st]} ({count})
-              </FilterChip>
-            );
-          })}
-        </div>
-      </div>
-
-      <AnimatePresence mode="wait">
-        {filtered.length === 0 ? (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2 }}
-          >
-            {list.length === 0 ? (
-              <EmptyState
-                emoji="📬"
-                title="Пока без откликов"
-                description="Зайди в каталог, выбери задачу и нажми «Откликнуться» — и она появится в этом списке."
-                action={
-                  <Link href="/teen/tasks" className="ui-btn-primary no-underline hover:no-underline">
-                    Открыть каталог
-                  </Link>
-                }
-              />
+      {list.length === 0 ? (
+        <EmptyState
+          emoji="📬"
+          title="Пока без откликов"
+          description="Зайди в каталог, выбери задачу и нажми «Откликнуться» — и она появится в этом списке."
+          action={
+            <Link href="/teen/dashboard" className="ui-btn-primary no-underline hover:no-underline">
+              Открыть каталог
+            </Link>
+          }
+        />
+      ) : (
+        <>
+          <section className="space-y-3">
+            <SectionTitle title="Сейчас в работе" />
+            {active.length > 0 ? (
+              <details className="ui-card border-edge text-sub-deep">
+                <summary className="cursor-pointer text-sm font-medium text-sub transition hover:text-ink">
+                  🛡️ Безопасность в работе
+                </summary>
+                <ul className="m-0 mt-2 list-disc space-y-1 pl-4 text-xs leading-relaxed">
+                  {TEEN_SAFETY_TIPS.map((tip) => (
+                    <li key={tip}>{tip}</li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+            {active.length === 0 ? (
+              <p className="m-0 text-sm text-sub">
+                Сейчас нет активной работы — загляни в каталог и откликнись на новую задачу.
+              </p>
             ) : (
-              <EmptyState
-                emoji="🏷️"
-                title="В этом статусе пусто"
-                description="Смени фильтр или покажи все отклики."
-                action={
-                  <button type="button" onClick={resetFilter} className="ui-btn-primary border-0">
-                    Показать все
-                  </button>
-                }
-              />
+              <ul className="m-0 flex list-none flex-col gap-4 p-0">
+                <AnimatePresence>
+                  {active.map((app, i) => (
+                    <motion.li
+                      key={app.id}
+                      layout
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{
+                        duration: 0.28,
+                        delay: Math.min(i * 0.05, 0.2),
+                        ease: [0.22, 1, 0.36, 1] as const,
+                      }}
+                    >
+                      <ApplicationCard
+                        application={app}
+                        task={getTaskByIdForFlow(app.taskId) ?? undefined}
+                        showMarkCompleted={app.status === "accepted"}
+                        onMarkCompleted={() => handleMarkCompleted(app)}
+                      />
+                    </motion.li>
+                  ))}
+                </AnimatePresence>
+              </ul>
             )}
-          </motion.div>
-        ) : (
-          <motion.ul
-            key="list"
-            className="m-0 flex list-none flex-col gap-4 p-0"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <AnimatePresence>
-              {filtered.map((app, i) => (
-                <motion.li
-                  key={app.id}
-                  layout
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{
-                    duration: 0.28,
-                    delay: Math.min(i * 0.05, 0.2),
-                    ease: [0.22, 1, 0.36, 1] as const,
-                  }}
-                >
-                  <div className="space-y-2">
-                    <ApplicationCard
-                      application={app}
-                      task={getTaskByIdForFlow(app.taskId) ?? undefined}
-                      showWithdraw={canWithdrawApplication(app)}
-                      onWithdraw={() => handleWithdraw(app)}
-                    />
-                    {app.status === "accepted" ? (
-                      <button
-                        type="button"
-                        onClick={() => handleMarkCompleted(app)}
-                        className="text-xs font-medium text-accent underline-offset-2 transition hover:text-accent-bright hover:underline"
+          </section>
+
+          {history.length > 0 ? (
+            <section className="space-y-3">
+              <SectionTitle title="История откликов" />
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-sub">Статус</p>
+                <div className="flex flex-wrap gap-2">
+                  <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
+                    Все ({history.length})
+                  </FilterChip>
+                  {HISTORY_STATUSES.map((st) => {
+                    const count = history.filter((a) => a.status === st).length;
+                    return (
+                      <FilterChip
+                        key={st}
+                        active={filter === st}
+                        onClick={() => setFilter(filter === st ? "all" : st)}
                       >
-                        Отметить выполненным
-                      </button>
-                    ) : null}
-                  </div>
-                </motion.li>
-              ))}
-            </AnimatePresence>
-          </motion.ul>
-        )}
-      </AnimatePresence>
+                        {APPLICATION_STATUS_LABELS[st]} ({count})
+                      </FilterChip>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <AnimatePresence mode="wait">
+                {filteredHistory.length === 0 ? (
+                  <motion.div
+                    key="empty"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <EmptyState
+                      emoji="🏷️"
+                      title="В этом статусе пусто"
+                      description="Смени фильтр или покажи все отклики."
+                      action={
+                        <button type="button" onClick={resetFilter} className="ui-btn-primary border-0">
+                          Показать все
+                        </button>
+                      }
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.ul
+                    key="list"
+                    className="m-0 flex list-none flex-col gap-4 p-0"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <AnimatePresence>
+                      {filteredHistory.map((app, i) => (
+                        <motion.li
+                          key={app.id}
+                          layout
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{
+                            duration: 0.28,
+                            delay: Math.min(i * 0.05, 0.2),
+                            ease: [0.22, 1, 0.36, 1] as const,
+                          }}
+                        >
+                          <ApplicationCard
+                            application={app}
+                            task={getTaskByIdForFlow(app.taskId) ?? undefined}
+                            showWithdraw={canWithdrawApplication(app)}
+                            onWithdraw={() => handleWithdraw(app)}
+                          />
+                        </motion.li>
+                      ))}
+                    </AnimatePresence>
+                  </motion.ul>
+                )}
+              </AnimatePresence>
+            </section>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

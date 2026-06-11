@@ -6,8 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Task } from "@/types/task";
 import {
   CATEGORY_LABELS,
-  DURATION_BUCKET_LABELS,
-  type DurationBucket,
+  PAYMENT_TYPE_LABELS,
   type TaskCategory,
   type WorkFormat,
 } from "@/lib/constants";
@@ -19,11 +18,34 @@ import { TeenCatalogTaskCard } from "@/components/teen/TeenCatalogTaskCard";
 import { TeenTaskFiltersDrawer, teenCatalogDrawerDefaults, type DrawerFilterState } from "@/components/teen/TeenTaskFiltersDrawer";
 import { TeenTasksCatalogActiveChips, type ActiveChip } from "@/components/teen/TeenTasksCatalogActiveChips";
 import { getTeenProfile, PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-store";
+import { getCurrentTeenId } from "@/lib/teen-flow";
+import { TEEN_FAVORITES_EVENT, getFavoriteTaskIds } from "@/lib/teen-favorites-storage";
 import {
   filterTeenCatalogTasks,
   type TeenCatalogAgeFit,
-  type TeenCatalogPaySort,
+  type TeenCatalogPaymentFilter,
+  type TeenCatalogSchedule,
+  type TeenCatalogSort,
+  type TeenCatalogWeekday,
 } from "@/lib/teen-task-catalog-filter";
+
+const SORT_LABELS: Record<TeenCatalogSort, string> = {
+  recommended: "Рекомендуем",
+  pay_high: "Сначала дороже",
+  pay_low: "Сначала дешевле",
+  new: "Сначала новые",
+  soonest: "Ближайшие по дате",
+};
+
+const WEEKDAY_LABELS: Record<Exclude<TeenCatalogWeekday, "all">, string> = {
+  weekday: "Будни",
+  weekend: "Выходные",
+};
+
+const SCHEDULE_LABELS: Record<Exclude<TeenCatalogSchedule, "all">, string> = {
+  fixed: "Время задано",
+  flexible: "Гибкий график",
+};
 
 function QuickChip({
   active,
@@ -59,10 +81,15 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<TaskCategory | null>(null);
   const [workFormat, setWorkFormat] = useState<WorkFormat | "all">("all");
-  const [duration, setDuration] = useState<DurationBucket | "all">("all");
-  const [paySort, setPaySort] = useState<TeenCatalogPaySort>("none");
+  const [maxDurationHours, setMaxDurationHours] = useState<number | null>(null);
+  const [paymentType, setPaymentType] = useState<TeenCatalogPaymentFilter>("all");
+  const [weekday, setWeekday] = useState<TeenCatalogWeekday>("all");
+  const [schedule, setSchedule] = useState<TeenCatalogSchedule>("all");
+  const [sort, setSort] = useState<TeenCatalogSort>("recommended");
   const [ageFitMode, setAgeFitMode] = useState<TeenCatalogAgeFit>("all");
   const [teenAge, setTeenAge] = useState<number | undefined>(undefined);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerDraft, setDrawerDraft] = useState<DrawerFilterState>(teenCatalogDrawerDefaults);
@@ -85,17 +112,43 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
     return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
   }, []);
 
+  useEffect(() => {
+    function syncFavorites() {
+      setFavoriteIds(new Set(getFavoriteTaskIds(getCurrentTeenId())));
+    }
+    syncFavorites();
+    window.addEventListener(TEEN_FAVORITES_EVENT, syncFavorites);
+    return () => window.removeEventListener(TEEN_FAVORITES_EVENT, syncFavorites);
+  }, []);
+
   const filterInput = useMemo(
     () => ({
       query,
       category,
       workFormat,
-      duration,
-      paySort,
+      maxDurationHours,
+      paymentType,
+      weekday,
+      schedule,
+      sort,
       ageFitMode,
       teenAge,
+      favoriteTaskIds: favoritesOnly ? favoriteIds : undefined,
     }),
-    [query, category, workFormat, duration, paySort, ageFitMode, teenAge],
+    [
+      query,
+      category,
+      workFormat,
+      maxDurationHours,
+      paymentType,
+      weekday,
+      schedule,
+      sort,
+      ageFitMode,
+      teenAge,
+      favoritesOnly,
+      favoriteIds,
+    ],
   );
 
   const filtered = useMemo(() => filterTeenCatalogTasks(tasks, filterInput), [tasks, filterInput]);
@@ -104,29 +157,40 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
     let n = 0;
     if (category !== null) n++;
     if (workFormat === "offline") n++;
-    if (duration === "long") n++;
-    if (paySort === "low") n++;
+    if (maxDurationHours !== null) n++;
+    if (paymentType !== "all") n++;
+    if (weekday !== "all") n++;
+    if (schedule !== "all") n++;
+    if (sort === "pay_low" || sort === "new" || sort === "soonest") n++;
     return n;
-  }, [category, workFormat, duration, paySort]);
+  }, [category, workFormat, maxDurationHours, paymentType, weekday, schedule, sort]);
 
   const hasActiveFilters = useMemo(() => {
     return (
       query.trim() !== "" ||
       category !== null ||
       workFormat !== "all" ||
-      duration !== "all" ||
-      paySort !== "none" ||
-      ageFitMode === "mine"
+      maxDurationHours !== null ||
+      paymentType !== "all" ||
+      weekday !== "all" ||
+      schedule !== "all" ||
+      sort !== "recommended" ||
+      ageFitMode === "mine" ||
+      favoritesOnly
     );
-  }, [query, category, workFormat, duration, paySort, ageFitMode]);
+  }, [query, category, workFormat, maxDurationHours, paymentType, weekday, schedule, sort, ageFitMode, favoritesOnly]);
 
   const resetFilters = useCallback(() => {
     setQuery("");
     setCategory(null);
     setWorkFormat("all");
-    setDuration("all");
-    setPaySort("none");
+    setMaxDurationHours(null);
+    setPaymentType("all");
+    setWeekday("all");
+    setSchedule("all");
+    setSort("recommended");
     setAgeFitMode("all");
+    setFavoritesOnly(false);
     setDrawerDraft(teenCatalogDrawerDefaults);
   }, []);
 
@@ -135,11 +199,14 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
       ageFitMode,
       category,
       workFormat,
-      duration,
-      paySort,
+      maxDurationHours,
+      paymentType,
+      weekday,
+      schedule,
+      sort,
     });
     setDrawerOpen(true);
-  }, [ageFitMode, category, workFormat, duration, paySort]);
+  }, [ageFitMode, category, workFormat, maxDurationHours, paymentType, weekday, schedule, sort]);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
@@ -149,8 +216,11 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
     setAgeFitMode(fit);
     setCategory(drawerDraft.category);
     setWorkFormat(drawerDraft.workFormat);
-    setDuration(drawerDraft.duration);
-    setPaySort(drawerDraft.paySort);
+    setMaxDurationHours(drawerDraft.maxDurationHours);
+    setPaymentType(drawerDraft.paymentType);
+    setWeekday(drawerDraft.weekday);
+    setSchedule(drawerDraft.schedule);
+    setSort(drawerDraft.sort);
     setDrawerOpen(false);
   }, [drawerDraft, teenAge]);
 
@@ -177,6 +247,13 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
         onRemove: () => setAgeFitMode("all"),
       });
     }
+    if (favoritesOnly) {
+      chips.push({
+        id: "favorites",
+        label: "Избранное",
+        onRemove: () => setFavoritesOnly(false),
+      });
+    }
     if (workFormat === "online") {
       chips.push({
         id: "online",
@@ -184,18 +261,39 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
         onRemove: () => setWorkFormat("all"),
       });
     }
-    if (duration === "short") {
+    if (maxDurationHours !== null) {
       chips.push({
-        id: "short",
-        label: DURATION_BUCKET_LABELS.short,
-        onRemove: () => setDuration("all"),
+        id: "max-duration",
+        label: `До ${maxDurationHours} ч`,
+        onRemove: () => setMaxDurationHours(null),
       });
     }
-    if (paySort === "high") {
+    if (weekday !== "all") {
       chips.push({
-        id: "pay-high",
-        label: "Выше оплата",
-        onRemove: () => setPaySort("none"),
+        id: `weekday-${weekday}`,
+        label: WEEKDAY_LABELS[weekday],
+        onRemove: () => setWeekday("all"),
+      });
+    }
+    if (schedule !== "all") {
+      chips.push({
+        id: `schedule-${schedule}`,
+        label: SCHEDULE_LABELS[schedule],
+        onRemove: () => setSchedule("all"),
+      });
+    }
+    if (paymentType !== "all") {
+      chips.push({
+        id: `pay-type-${paymentType}`,
+        label: PAYMENT_TYPE_LABELS[paymentType],
+        onRemove: () => setPaymentType("all"),
+      });
+    }
+    if (sort !== "recommended") {
+      chips.push({
+        id: `sort-${sort}`,
+        label: `Сортировка: ${SORT_LABELS[sort]}`,
+        onRemove: () => setSort("recommended"),
       });
     }
     if (category) {
@@ -212,27 +310,13 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
         onRemove: () => setWorkFormat("all"),
       });
     }
-    if (duration === "long") {
-      chips.push({
-        id: "long",
-        label: DURATION_BUCKET_LABELS.long,
-        onRemove: () => setDuration("all"),
-      });
-    }
-    if (paySort === "low") {
-      chips.push({
-        id: "pay-low",
-        label: "Ниже оплата",
-        onRemove: () => setPaySort("none"),
-      });
-    }
     return chips;
-  }, [query, ageFitMode, workFormat, duration, paySort, category]);
+  }, [query, ageFitMode, workFormat, maxDurationHours, weekday, schedule, paymentType, sort, category, favoritesOnly]);
 
   return (
     <div className="ui-stack">
       <header className="space-y-1">
-        <SectionTitle title="Задачи" />
+        <SectionTitle title="Все подработки" />
         <p className="text-sm text-sub">Поиск и карточки — расширенные фильтры в пару нажатий.</p>
       </header>
 
@@ -266,18 +350,39 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
               Онлайн
             </QuickChip>
             <QuickChip
-              active={duration === "short"}
+              active={maxDurationHours === 2}
               disabled={loading}
-              onClick={() => setDuration(duration === "short" ? "all" : "short")}
+              onClick={() => setMaxDurationHours(maxDurationHours === 2 ? null : 2)}
             >
-              {DURATION_BUCKET_LABELS.short}
+              До 2 часов
             </QuickChip>
             <QuickChip
-              active={paySort === "high"}
+              active={weekday === "weekend"}
               disabled={loading}
-              onClick={() => setPaySort(paySort === "high" ? "none" : "high")}
+              onClick={() => setWeekday(weekday === "weekend" ? "all" : "weekend")}
+            >
+              На выходных
+            </QuickChip>
+            <QuickChip
+              active={paymentType === "fixed"}
+              disabled={loading}
+              onClick={() => setPaymentType(paymentType === "fixed" ? "all" : "fixed")}
+            >
+              {PAYMENT_TYPE_LABELS.fixed}
+            </QuickChip>
+            <QuickChip
+              active={sort === "pay_high"}
+              disabled={loading}
+              onClick={() => setSort(sort === "pay_high" ? "recommended" : "pay_high")}
             >
               Выше оплата
+            </QuickChip>
+            <QuickChip
+              active={favoritesOnly}
+              disabled={loading}
+              onClick={() => setFavoritesOnly((v) => !v)}
+            >
+              ♥ Избранное
             </QuickChip>
           </div>
         </div>
@@ -392,7 +497,7 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
         ) : (
           <motion.ul
             key="list"
-            className="m-0 flex list-none flex-col gap-4 p-0"
+            className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:gap-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -401,6 +506,7 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
             {filtered.map((task, i) => (
               <motion.li
                 key={task.id}
+                className="min-w-0"
                 layout
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

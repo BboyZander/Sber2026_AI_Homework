@@ -11,11 +11,15 @@ export function ApplicationCard({
   task,
   showWithdraw,
   onWithdraw,
+  showMarkCompleted,
+  onMarkCompleted,
 }: {
   application: Application;
   task: Task | undefined;
   showWithdraw?: boolean;
   onWithdraw?: () => void;
+  showMarkCompleted?: boolean;
+  onMarkCompleted?: () => void;
 }) {
   const hint = APPLICATION_STATUS_HINTS[application.status];
 
@@ -34,6 +38,15 @@ export function ApplicationCard({
         <StatusBadge kind="application" status={application.status} />
       </div>
       <p className="mb-0 mt-3 text-sm leading-relaxed text-sub">{hint}</p>
+      {showMarkCompleted && onMarkCompleted ? (
+        <button
+          type="button"
+          onClick={onMarkCompleted}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent-bright transition hover:bg-accent/20 active:scale-[0.98]"
+        >
+          ✓ Отметить выполненным
+        </button>
+      ) : null}
       {application.message ? (
         <p className="mb-0 mt-2 border-t border-edge/80 pt-2 text-sm text-sub">
           «{application.message}»

@@ -14,6 +14,12 @@ export interface Task {
   id: string;
   title: string;
   description: string;
+  /** Структурированное описание задачи (F3.1): что конкретно делать. */
+  whatToDo: string;
+  /** Структурированное описание задачи (F3.1): по каким критериям подросток поймёт, что задача выполнена. */
+  completionCriteria: string;
+  /** Структурированное описание задачи (F3.1): к кому обращаться по вопросам. */
+  contactPerson: string;
   employerId: string;
   employerName: string;
   category: TaskCategory;
@@ -38,6 +44,8 @@ export interface Task {
   minAge?: number;
   maxAge?: number;
   engagementType: EngagementType;
+  /** Время задано точно (явка к startDateTime) или гибкий график — успеть сделать к сроку (F2.6). */
+  hasFixedSchedule: boolean;
   startDateTime: string;
   durationHours: number;
   weeklyHoursExpected: number;

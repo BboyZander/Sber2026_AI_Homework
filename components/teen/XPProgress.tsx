@@ -33,6 +33,9 @@ export function XPProgress({
           }
         />
       </div>
+      <p className="m-0 mt-2 text-xs leading-relaxed text-sub">
+        XP — опыт за выполненные задачи. Чем выше уровень, тем сложнее и денежнее доступные подработки.
+      </p>
     </div>
   );
 }

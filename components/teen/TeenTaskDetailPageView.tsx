@@ -40,7 +40,7 @@ export function TeenTaskDetailPageView({ taskId }: { taskId: string }) {
         emoji="🚧"
         title="Задача недоступна"
         description="Работодатель мог закрыть или удалить её — попробуй другую из каталога."
-        action={<CTAButton href="/teen/tasks">В каталог</CTAButton>}
+        action={<CTAButton href="/teen/dashboard">В каталог</CTAButton>}
       />
     );
   }

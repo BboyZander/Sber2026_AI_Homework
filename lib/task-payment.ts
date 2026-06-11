@@ -76,3 +76,23 @@ export function taskPaymentTeenEstimatedTotalLine(task: Task): string | null {
   const total = Math.round(t.paymentAmount * h);
   return `Ориентир ~${formatRub(total)} · ${rateFmt(h)} ч`;
 }
+
+/** Разбивка «ставка × часы = итог» для почасовых задач (F3.3). */
+export interface TaskHourlyEarningsBreakdown {
+  rateLine: string;
+  hoursLine: string;
+  totalLine: string;
+}
+
+export function taskHourlyEarningsBreakdown(task: Task): TaskHourlyEarningsBreakdown | null {
+  const t = withNormalizedTaskPayment(task);
+  if (t.paymentType !== "hourly") return null;
+  const h = t.estimatedHours;
+  if (typeof h !== "number" || !Number.isFinite(h) || h <= 0) return null;
+  const total = Math.round(t.paymentAmount * h);
+  return {
+    rateLine: `${rateFmt(t.paymentAmount)} ₽/час`,
+    hoursLine: `${rateFmt(h)} ч`,
+    totalLine: `~${formatRub(total)}`,
+  };
+}

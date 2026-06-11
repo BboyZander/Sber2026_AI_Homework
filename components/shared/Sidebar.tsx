@@ -9,13 +9,6 @@ function IconHome() {
     </svg>
   );
 }
-function IconList() {
-  return (
-    <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-    </svg>
-  );
-}
 function IconInbox() {
   return (
     <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24">
@@ -54,8 +47,7 @@ function IconPlus() {
 
 const teenLinks: { href: string; label: string; icon: ReactNode }[] = [
   { href: "/teen/dashboard", label: "Главная", icon: <IconHome /> },
-  { href: "/teen/tasks", label: "Задачи", icon: <IconList /> },
-  { href: "/teen/applications", label: "Отклики", icon: <IconInbox /> },
+  { href: "/teen/applications", label: "В работе", icon: <IconInbox /> },
   { href: "/teen/profile", label: "Профиль", icon: <IconUser /> },
 ];
 

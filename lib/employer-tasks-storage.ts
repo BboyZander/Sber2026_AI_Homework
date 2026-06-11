@@ -18,6 +18,10 @@ function normalizeTaskCompliance(task: Task): Task {
   return {
     ...task,
     engagementType: task.engagementType ?? "employment",
+    hasFixedSchedule: typeof task.hasFixedSchedule === "boolean" ? task.hasFixedSchedule : true,
+    whatToDo: task.whatToDo ?? "",
+    completionCriteria: task.completionCriteria ?? "",
+    contactPerson: task.contactPerson ?? "",
     startDateTime: task.startDateTime ?? task.deadline ?? task.createdAt,
     durationHours: Number.isFinite(task.durationHours) ? task.durationHours : 2,
     weeklyHoursExpected: Number.isFinite(task.weeklyHoursExpected) ? task.weeklyHoursExpected : 8,
@@ -59,6 +63,9 @@ type TaskPatchOverride = Partial<
     Task,
     | "title"
     | "description"
+    | "whatToDo"
+    | "completionCriteria"
+    | "contactPerson"
     | "category"
     | "workFormat"
     | "durationBucket"
@@ -72,6 +79,7 @@ type TaskPatchOverride = Partial<
     | "minAge"
     | "maxAge"
     | "engagementType"
+    | "hasFixedSchedule"
     | "startDateTime"
     | "durationHours"
     | "weeklyHoursExpected"
