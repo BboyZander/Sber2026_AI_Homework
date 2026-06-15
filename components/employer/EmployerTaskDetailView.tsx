@@ -7,22 +7,16 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CATEGORY_LABELS, TASK_STATUS_LABELS, WORK_FORMAT_LABELS } from "@/lib/constants";
 import { EMPLOYER_CONFIRM, EMPLOYER_TOASTS } from "@/lib/ui-copy";
-import { getDemoUserById } from "@/lib/auth";
+import { pushEmployerToast } from "@/lib/employer-flow";
 import {
-  canMutateTask,
   EMPLOYER_TASKS_EVENT,
-  EMPLOYER_TASKS_EXTRA_KEY,
-  getTaskByIdForFlow,
-  pushEmployerToast,
-  removeTask,
-  setTaskStatusForFlow,
-  toggleTaskClosed,
-} from "@/lib/employer-flow";
-import {
-  getApplicationsForTask,
-  TEEN_APPLICATIONS_EVENT,
-  updateApplicationStatus,
-} from "@/lib/teen-flow";
+  deleteTaskDb,
+  getEmployerTaskById,
+  getSessionEmployerId,
+  loadTaskApplicants,
+  setTaskStatusDb,
+  updateApplicationStatusDb,
+} from "@/lib/employer-tasks-client";
 import { formatDate } from "@/lib/helpers";
 import type { Task } from "@/types/task";
 import { taskPaymentEmployerSummary, taskPaymentTeenEstimatedTotalLine } from "@/lib/task-payment";
@@ -31,25 +25,28 @@ import type { Application } from "@/types/application";
 export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
   const [task, setTask] = useState<Task | null>(null);
   const [apps, setApps] = useState<Application[]>([]);
-  const refresh = useCallback(() => {
-    const t = getTaskByIdForFlow(taskId);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [employerId, setEmployerId] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
+  const refresh = useCallback(async () => {
+    const [t, applicants, eid] = await Promise.all([
+      getEmployerTaskById(taskId),
+      loadTaskApplicants(taskId),
+      getSessionEmployerId(),
+    ]);
     setTask(t);
-    setApps(getApplicationsForTask(taskId));
+    setApps(applicants.apps);
+    setNames(applicants.names);
+    setEmployerId(eid);
+    setReady(true);
   }, [taskId]);
 
   useEffect(() => {
-    refresh();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === EMPLOYER_TASKS_EXTRA_KEY) refresh();
-    };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener(EMPLOYER_TASKS_EVENT, refresh);
-    window.addEventListener(TEEN_APPLICATIONS_EVENT, refresh);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener(EMPLOYER_TASKS_EVENT, refresh);
-      window.removeEventListener(TEEN_APPLICATIONS_EVENT, refresh);
-    };
+    void refresh();
+    const onEvent = () => void refresh();
+    window.addEventListener(EMPLOYER_TASKS_EVENT, onEvent);
+    return () => window.removeEventListener(EMPLOYER_TASKS_EVENT, onEvent);
   }, [refresh]);
 
   const ageHint = useMemo(() => {
@@ -60,17 +57,21 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
     return "14–17 лет";
   }, [task]);
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!task) return;
     if (!window.confirm(EMPLOYER_CONFIRM.deleteTask)) return;
-    const ok = removeTask(task.id);
+    const ok = await deleteTaskDb(task.id);
     if (ok) window.location.href = "/employer/tasks";
   }
 
-  function handleToggleClosed() {
+  async function handleToggleClosed() {
     if (!task) return;
-    const updated = toggleTaskClosed(task.id);
-    if (updated) refresh();
+    const next = task.status === "completed" ? "open" : "completed";
+    const ok = await setTaskStatusDb(task.id, next);
+    if (ok) {
+      pushEmployerToast(next === "completed" ? EMPLOYER_TOASTS.closed : EMPLOYER_TOASTS.reopened);
+      await refresh();
+    }
   }
 
   function handleRepeatTask() {
@@ -78,42 +79,41 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
     window.location.href = `/employer/tasks/new?repeatFrom=${encodeURIComponent(task.id)}`;
   }
 
-  function advanceApplication(app: Application) {
+  async function advanceApplication(app: Application) {
     if (app.status === "rejected") return;
     const next =
-      app.status === "applied"
-        ? "accepted"
-        : app.status === "submitted"
-          ? "paid"
-          : null;
+      app.status === "applied" ? "accepted" : app.status === "submitted" ? "paid" : null;
     if (!next) return;
-    const ok = updateApplicationStatus(app.id, next);
-    if (ok && next === "accepted") {
-      setTaskStatusForFlow(app.taskId, "in_progress");
+
+    const ok = await updateApplicationStatusDb(app.id, next);
+    if (!ok) return;
+
+    if (next === "accepted") {
+      await setTaskStatusDb(app.taskId, "in_progress");
       for (const other of apps) {
-        if (other.id === app.id) continue;
-        if (other.taskId !== app.taskId) continue;
-        if (other.status === "applied") updateApplicationStatus(other.id, "rejected");
+        if (other.id === app.id || other.taskId !== app.taskId) continue;
+        if (other.status === "applied") await updateApplicationStatusDb(other.id, "rejected");
       }
+      pushEmployerToast(EMPLOYER_TOASTS.applicationInProgress);
     }
-    if (ok && next === "paid") {
-      setTaskStatusForFlow(app.taskId, "completed");
+    if (next === "paid") {
+      await setTaskStatusDb(app.taskId, "completed");
+      pushEmployerToast(EMPLOYER_TOASTS.applicationPaid);
     }
-    refresh();
+    await refresh();
+  }
+
+  async function rejectApplication(app: Application) {
+    if (app.status !== "applied") return;
+    if (!window.confirm(EMPLOYER_CONFIRM.rejectApplication)) return;
+    const ok = await updateApplicationStatusDb(app.id, "rejected");
     if (ok) {
-      if (next === "accepted") pushEmployerToast(EMPLOYER_TOASTS.applicationInProgress);
-      if (next === "paid") pushEmployerToast(EMPLOYER_TOASTS.applicationPaid);
+      pushEmployerToast(EMPLOYER_TOASTS.applicationRejected);
+      await refresh();
     }
   }
 
-  function rejectApplication(app: Application) {
-    if (app.status === "rejected") return;
-    if (app.status !== "applied") return;
-    if (!window.confirm(EMPLOYER_CONFIRM.rejectApplication)) return;
-    const ok = updateApplicationStatus(app.id, "rejected");
-    refresh();
-    if (ok) pushEmployerToast(EMPLOYER_TOASTS.applicationRejected);
-  }
+  if (!ready) return null;
 
   if (!task) {
     return (
@@ -126,7 +126,7 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
     );
   }
 
-  const canMutate = canMutateTask(task.id);
+  const canMutate = task.employerId === employerId;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -204,8 +204,7 @@ export function EmployerTaskDetailView({ taskId }: { taskId: string }) {
           ) : (
             <ul className="mt-3 m-0 flex list-none flex-col gap-2 p-0">
               {apps.map((app) => {
-                const user = getDemoUserById(app.teenId);
-                const name = user && user.role === "teen" ? user.name : app.teenId;
+                const name = names[app.teenId] ?? app.teenId;
                 const canRespond = app.status === "applied";
                 const canPay = app.status === "submitted";
                 return (

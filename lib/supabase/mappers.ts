@@ -90,6 +90,48 @@ export function rowToTask(r: TaskRow): Task {
   };
 }
 
+/**
+ * Task (camelCase) → строка БД (snake_case) для insert/update.
+ * Исключены id/created_at (генерит БД) и lat/lng (задел E2.7, нет в типе Task).
+ */
+export function taskToRow(t: Task): Record<string, unknown> {
+  return {
+    title: t.title,
+    description: t.description,
+    what_to_do: t.whatToDo,
+    completion_criteria: t.completionCriteria,
+    contact_person: t.contactPerson,
+    employer_id: t.employerId,
+    employer_name: t.employerName,
+    category: t.category,
+    status: t.status,
+    reward_xp: t.rewardXp,
+    payment_type: t.paymentType,
+    payment_amount: t.paymentAmount,
+    estimated_hours: t.estimatedHours ?? null,
+    pay_rub: t.payRub,
+    work_format: t.workFormat,
+    duration_bucket: t.durationBucket,
+    duration_label: t.durationLabel,
+    location: t.location ?? null,
+    min_age: t.minAge ?? null,
+    max_age: t.maxAge ?? null,
+    engagement_type: t.engagementType,
+    has_fixed_schedule: t.hasFixedSchedule,
+    start_date_time: t.startDateTime || null,
+    duration_hours: t.durationHours,
+    weekly_hours_expected: t.weeklyHoursExpected,
+    during_school_period_allowed: t.duringSchoolPeriodAllowed,
+    during_vacation_allowed: t.duringVacationAllowed,
+    requires_medical_exam: t.requiresMedicalExam,
+    physical_load_level: t.physicalLoadLevel,
+    is_outdoor: t.isOutdoor,
+    minor_compliance_status: t.minorComplianceStatus,
+    minor_compliance_reasons: t.minorComplianceReasons,
+    deadline: t.deadline ?? null,
+  };
+}
+
 export interface ApplicationRow {
   id: string;
   task_id: string;

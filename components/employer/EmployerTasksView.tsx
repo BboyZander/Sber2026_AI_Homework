@@ -1,21 +1,21 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CTAButton } from "@/components/shared/CTAButton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PublishedTaskCard } from "@/components/employer/PublishedTaskCard";
 import { SectionTitle } from "@/components/shared/SectionTitle";
 import { EmployerTaskListSkeleton } from "@/components/shared/Skeleton";
 import type { Task } from "@/types/task";
+import { getEmployerTaskViewStatus } from "@/lib/employer-flow";
 import {
   EMPLOYER_TASKS_EVENT,
-  EMPLOYER_TASKS_EXTRA_KEY,
-  getEmployerTaskStats,
-  getEmployerTaskViewStatus,
-  getEmployerTasks,
-} from "@/lib/employer-flow";
-import { getApplicationsForTask, TEEN_APPLICATIONS_EVENT } from "@/lib/teen-flow";
+  getEmployerTaskStatsCached,
+  getEmployerTasksCached,
+  loadEmployerTasks,
+  taskHasAppliedCached,
+} from "@/lib/employer-tasks-client";
 import { EMPLOYER_TASK_VIEW_FILTER_LABELS } from "@/lib/ui-copy";
 
 type ViewStatus = "draft" | "open" | "with_application" | "in_progress" | "completed";
@@ -49,34 +49,24 @@ export function EmployerTasksView() {
   const [filter, setFilter] = useState<ViewStatus | "all">("all");
   const [mounted, setMounted] = useState(false);
 
-  const refresh = useCallback(() => {
-    setList(getEmployerTasks());
-  }, []);
-
   useEffect(() => {
     setMounted(true);
-    refresh();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === EMPLOYER_TASKS_EXTRA_KEY) refresh();
-    };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener(EMPLOYER_TASKS_EVENT, refresh);
-    window.addEventListener(TEEN_APPLICATIONS_EVENT, refresh);
+    function sync() {
+      setList(getEmployerTasksCached());
+    }
+    void loadEmployerTasks();
+    sync();
+    window.addEventListener(EMPLOYER_TASKS_EVENT, sync);
     return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener(EMPLOYER_TASKS_EVENT, refresh);
-      window.removeEventListener(TEEN_APPLICATIONS_EVENT, refresh);
+      window.removeEventListener(EMPLOYER_TASKS_EVENT, sync);
     };
-  }, [refresh]);
+  }, []);
 
   const mapped = useMemo(
     () =>
       list.map((task) => ({
         task,
-        viewStatus: getEmployerTaskViewStatus(
-          task,
-          getApplicationsForTask(task.id).some((a) => a.status === "applied"),
-        ),
+        viewStatus: getEmployerTaskViewStatus(task, taskHasAppliedCached(task.id)),
       })),
     [list],
   );
@@ -87,7 +77,7 @@ export function EmployerTasksView() {
   }, [filter, mapped]);
 
   const counts = useMemo(() => {
-    const s = getEmployerTaskStats();
+    const s = getEmployerTaskStatsCached();
     return {
       all: s.total,
       draft: s.draft,

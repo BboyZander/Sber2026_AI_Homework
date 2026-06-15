@@ -11,13 +11,17 @@ import {
   EMPLOYER_CUSTOMER_TYPES,
   EMPLOYER_TAG_SUGGESTIONS,
   profilePatchFromEmployer,
-  resolveSessionEmployer,
   taskCategoryLabel,
   normalizeTags,
   validateEmployerCabinetPatch,
   type EmployerCabinetPatch,
 } from "@/lib/employer-profile";
-import { PROFILE_UPDATED_EVENT, updateEmployerProfile, type ProfileUpdatedDetail } from "@/lib/profile-store";
+import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-sync";
+import {
+  getEmployerProfileCached,
+  loadEmployerProfile,
+  updateEmployerProfileFields,
+} from "@/lib/employer-profile-client";
 import { pushEmployerToast } from "@/lib/employer-flow";
 import { EMPLOYER_TOASTS } from "@/lib/ui-copy";
 
@@ -52,20 +56,24 @@ export function EmployerCabinetView({ initialEmployer }: { initialEmployer: Empl
   const [savedOk, setSavedOk] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
 
-  const refresh = useCallback(() => {
-    setEmployer(resolveSessionEmployer(initialEmployer));
-  }, [initialEmployer]);
+  const refresh = useCallback(async () => {
+    const p = (await loadEmployerProfile()) ?? getEmployerProfileCached();
+    if (p) setEmployer(p);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
-    refresh();
+    void refresh();
     function onProfile(e: Event) {
       const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
-      if (d?.role === "employer" && d.userId === initialEmployer.id) refresh();
+      if (d?.role === "employer") {
+        const p = getEmployerProfileCached();
+        if (p) setEmployer(p);
+      }
     }
     window.addEventListener(PROFILE_UPDATED_EVENT, onProfile);
     return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
-  }, [refresh, initialEmployer.id]);
+  }, [refresh]);
 
   useEffect(() => {
     if (!savedOk) return;
@@ -110,13 +118,12 @@ export function EmployerCabinetView({ initialEmployer }: { initialEmployer: Empl
       setFieldErrors({ company: v.companyError, description: v.descriptionError });
       return;
     }
-    updateEmployerProfile(v.patch, employer.id);
+    void updateEmployerProfileFields(v.patch);
     setEditing(false);
     setDraft(null);
     setTagInput("");
     setFieldErrors({});
     setDirtyBaseline(null);
-    refresh();
     setSavedOk(true);
     pushEmployerToast(EMPLOYER_TOASTS.cabinetSaved);
   }, [draft, employer.id, refresh]);

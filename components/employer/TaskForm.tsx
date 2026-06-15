@@ -15,13 +15,13 @@ import {
   WORK_FORMAT_LABELS,
   WORK_FORMATS,
 } from "@/lib/constants";
+import { type EmployerTaskPayload } from "@/lib/employer-flow";
 import {
-  type EmployerTaskPayload,
-  canEditTask,
-  editTask,
-  getTaskByIdForFlow,
-  publishTask,
-} from "@/lib/employer-flow";
+  editTaskDb,
+  getEmployerTaskById,
+  getSessionEmployerId,
+  publishTaskDb,
+} from "@/lib/employer-tasks-client";
 import { formatRub } from "@/lib/helpers";
 import { currentMinorPeriod, getMinorComplianceResult, type MinorComplianceResult } from "@/lib/minor-compliance";
 import {
@@ -470,24 +470,39 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
 
   useEffect(() => {
     if (prefillDoneRef.current) return;
-    if (editTaskId) {
-      const t = getTaskByIdForFlow(editTaskId);
-      if (!t || !canEditTask(editTaskId)) {
-        setEditLoadError(true);
+    let cancelled = false;
+    (async () => {
+      if (editTaskId) {
+        const [t, eid] = await Promise.all([
+          getEmployerTaskById(editTaskId),
+          getSessionEmployerId(),
+        ]);
+        const editable =
+          t &&
+          t.employerId === eid &&
+          t.status !== "in_progress" &&
+          t.status !== "completed";
+        if (cancelled) return;
+        if (!t || !editable) {
+          setEditLoadError(true);
+          prefillDoneRef.current = true;
+          return;
+        }
+        setValues(taskSourceToFormData(t));
+        setEditingPriorTask(t);
         prefillDoneRef.current = true;
         return;
       }
-      setValues(taskSourceToFormData(t));
-      setEditingPriorTask(t);
+      const repeatFrom = searchParams.get("repeatFrom");
+      if (!repeatFrom) return;
+      const src = await getEmployerTaskById(repeatFrom);
+      if (cancelled || !src) return;
+      setValues(taskSourceToFormData(src));
       prefillDoneRef.current = true;
-      return;
-    }
-    const repeatFrom = searchParams.get("repeatFrom");
-    if (!repeatFrom) return;
-    const src = getTaskByIdForFlow(repeatFrom);
-    if (!src) return;
-    setValues(taskSourceToFormData(src));
-    prefillDoneRef.current = true;
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [editTaskId, searchParams]);
 
   function onBlurField(field: keyof FormData) {
@@ -526,8 +541,8 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
     );
   }, [values]);
 
-  function createNewTask(status: Task["status"]): Task {
-    return publishTask(buildEmployerTaskPayload(values, complianceResult, status));
+  function createNewTask(status: Task["status"]): Promise<Task | null> {
+    return publishTaskDb(buildEmployerTaskPayload(values, complianceResult, status));
   }
 
   if (editLoadError && editTaskId) {
@@ -581,10 +596,10 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
                 <button
                   type="button"
                   className="ui-btn-ghost border-0"
-                  onClick={() => {
+                  onClick={async () => {
                     setCreated(null);
                     setSubmitted(false);
-                    const t = getTaskByIdForFlow(created.id);
+                    const t = await getEmployerTaskById(created.id);
                     if (t) setEditingPriorTask(t);
                   }}
                 >
@@ -636,16 +651,17 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
         const submitDraft = submitMode === "draft";
         if (submitDraft) {
           setPublishing(true);
-          window.setTimeout(() => {
+          window.setTimeout(async () => {
             if (editTaskId) {
               const st = statusAfterSubmit(true, editTaskId, editingPriorTask);
-              const nextTask = editTask(
+              const nextTask = await editTaskDb(
                 editTaskId,
                 buildEmployerTaskPayload(values, complianceResult, st),
               );
               if (nextTask) setCreated(nextTask);
             } else {
-              setCreated(createNewTask("draft"));
+              const created = await createNewTask("draft");
+              if (created) setCreated(created);
             }
             setPublishing(false);
           }, 220);
@@ -657,16 +673,17 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
         if (Object.keys(all).length > 0) return;
         if (complianceResult.status === "blocked") return;
         setPublishing(true);
-        window.setTimeout(() => {
+        window.setTimeout(async () => {
           if (editTaskId) {
             const st = statusAfterSubmit(false, editTaskId, editingPriorTask);
-            const nextTask = editTask(
+            const nextTask = await editTaskDb(
               editTaskId,
               buildEmployerTaskPayload(values, complianceResult, st),
             );
             if (nextTask) setCreated(nextTask);
           } else {
-            setCreated(createNewTask("open"));
+            const created = await createNewTask("open");
+            if (created) setCreated(created);
           }
           setPublishing(false);
         }, 320);

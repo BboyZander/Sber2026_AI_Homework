@@ -8,7 +8,7 @@ export default function EmployerNewTaskPage() {
     <AppShell variant="employer" title="Новая задача">
       <SectionTitle title="Новая задача" />
       <p className="-mt-1 mb-5 max-w-3xl text-sm leading-relaxed text-sub">
-        Ключевые поля и публикация — пара минут. Данные сохраняются локально в браузере (демо).
+        Ключевые поля и публикация — пара минут. Задача сразу появится в каталоге подростков.
       </p>
       <Suspense fallback={<div className="ui-card text-sm text-sub">Загружаем форму…</div>}>
         <TaskForm />

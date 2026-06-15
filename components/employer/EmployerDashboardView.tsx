@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { EmployerProfile } from "@/types/user";
 import type { Task } from "@/types/task";
 import { CTAButton } from "@/components/shared/CTAButton";
@@ -10,15 +10,13 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { SectionTitle } from "@/components/shared/SectionTitle";
 import { StatCard } from "@/components/shared/StatCard";
 import { PublishedTaskCard } from "@/components/employer/PublishedTaskCard";
-import { resolveSessionEmployer } from "@/lib/employer-profile";
-import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-store";
+import { createClient } from "@/lib/supabase/client";
 import {
   EMPLOYER_TASKS_EVENT,
-  EMPLOYER_TASKS_EXTRA_KEY,
-  getEmployerTaskStats,
-  getEmployerTasks,
-} from "@/lib/employer-flow";
-import { TEEN_APPLICATIONS_EVENT } from "@/lib/teen-flow";
+  getEmployerTaskStatsCached,
+  getEmployerTasksCached,
+  loadEmployerTasks,
+} from "@/lib/employer-tasks-client";
 
 const slide = (delay: number) => ({
   initial: { opacity: 0, y: 10 },
@@ -32,42 +30,40 @@ export function EmployerDashboardView({
   employer: EmployerProfile;
 }) {
   const reduceMotion = useReducedMotion();
-  const [employer, setEmployer] = useState(initialEmployer);
+  const [helloName, setHelloName] = useState(
+    initialEmployer.companyName || initialEmployer.name,
+  );
   const [tasks, setTasks] = useState<Task[]>([]);
 
-  const refreshEmployer = useCallback(() => {
-    setEmployer(resolveSessionEmployer(initialEmployer));
-  }, [initialEmployer]);
-
-  const refreshTasks = useCallback(() => {
-    setTasks(getEmployerTasks());
-  }, []);
-
-  const refresh = useCallback(() => {
-    refreshEmployer();
-    refreshTasks();
-  }, [refreshEmployer, refreshTasks]);
-
   useEffect(() => {
-    refresh();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === EMPLOYER_TASKS_EXTRA_KEY) refreshTasks();
-    };
-    function onProfile(e: Event) {
-      const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
-      if (d?.role === "employer" && d.userId === initialEmployer.id) refreshEmployer();
+    let alive = true;
+    function syncTasks() {
+      setTasks(getEmployerTasksCached());
     }
-    window.addEventListener("storage", onStorage);
-    window.addEventListener(EMPLOYER_TASKS_EVENT, refreshTasks);
-    window.addEventListener(TEEN_APPLICATIONS_EVENT, refreshTasks);
-    window.addEventListener(PROFILE_UPDATED_EVENT, onProfile);
+
+    (async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user && alive) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (alive && prof?.name) setHelloName(prof.name as string);
+      }
+      await loadEmployerTasks();
+      if (alive) syncTasks();
+    })();
+
+    window.addEventListener(EMPLOYER_TASKS_EVENT, syncTasks);
     return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener(EMPLOYER_TASKS_EVENT, refreshTasks);
-      window.removeEventListener(TEEN_APPLICATIONS_EVENT, refreshTasks);
-      window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
+      alive = false;
+      window.removeEventListener(EMPLOYER_TASKS_EVENT, syncTasks);
     };
-  }, [refresh, refreshEmployer, refreshTasks, initialEmployer.id]);
+  }, []);
 
   const recent = useMemo(
     () =>
@@ -76,8 +72,7 @@ export function EmployerDashboardView({
         .slice(0, 5),
     [tasks],
   );
-  const stats = useMemo(() => getEmployerTaskStats(), [tasks]);
-  const helloName = employer.companyName || employer.name;
+  const stats = useMemo(() => getEmployerTaskStatsCached(), [tasks]);
 
   return (
     <div className="ui-stack pb-2">

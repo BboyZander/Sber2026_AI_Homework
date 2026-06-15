@@ -1,18 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { demoAchievements } from "@/data/demo-achievements";
 import { EmptyState } from "@/components/shared/EmptyState";
 import type { Achievement } from "@/types/achievement";
-import { computeTeenActivityStats } from "@/lib/teen-activity-stats";
-import { getApplications, TEEN_APPLICATIONS_EVENT } from "@/lib/teen-flow";
+import { createClient } from "@/lib/supabase/client";
 import { teenInterestLabel } from "@/lib/teen-interest-labels";
 import { TEEN_PREFERRED_FORMAT_LABELS } from "@/lib/teen-profile";
-import { getPublicTeenProfile } from "@/lib/public-profiles";
-import { PROFILE_STORAGE_KEYS } from "@/lib/profile-store";
-import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-sync";
-import type { TeenProfile } from "@/types/user";
+import type { TeenPreferredTaskFormat, TeenProfile } from "@/types/user";
 
 function EmployerTeenAchievementBadges({ achievements }: { achievements: Achievement[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
@@ -75,34 +71,54 @@ function EmployerTeenAchievementBadges({ achievements }: { achievements: Achieve
 export function EmployerTeenPublicProfileView({ teenId }: { teenId: string }) {
   const [profile, setProfile] = useState<TeenProfile | null>(null);
   const [completedTasksCount, setCompletedTasksCount] = useState(0);
-
-  const refresh = useCallback(() => {
-    const p = getPublicTeenProfile(teenId);
-    setProfile(p);
-    if (!p) return;
-    const apps = getApplications(teenId);
-    setCompletedTasksCount(computeTeenActivityStats(apps).completedTasksCount);
-  }, [teenId]);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    refresh();
-    const onApps = () => refresh();
-    function onProfileUpdated(e: Event) {
-      const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
-      if (!d || (d.role === "teen" && d.userId === teenId)) refresh();
-    }
-    function onStorage(e: StorageEvent) {
-      if (e.key === PROFILE_STORAGE_KEYS.teen) refresh();
-    }
-    window.addEventListener(TEEN_APPLICATIONS_EVENT, onApps);
-    window.addEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
-    window.addEventListener("storage", onStorage);
+    let active = true;
+    (async () => {
+      const supabase = createClient();
+      const { data: base } = await supabase
+        .from("profiles")
+        .select("name, city, role")
+        .eq("id", teenId)
+        .maybeSingle();
+      if (!active) return;
+      if (!base || base.role !== "teen") {
+        setProfile(null);
+        setReady(true);
+        return;
+      }
+      // teen_profiles доступен работодателю по RLS только если подросток
+      // откликался на его задачу (карточка открывается из отклика).
+      const { data: tp } = await supabase
+        .from("teen_profiles")
+        .select("*")
+        .eq("id", teenId)
+        .maybeSingle();
+      if (!active) return;
+      const t = (tp ?? {}) as Record<string, unknown>;
+      setProfile({
+        id: teenId,
+        email: "",
+        name: base.name as string,
+        role: "teen",
+        city: (base.city as string) ?? undefined,
+        age: (t.age as number) ?? undefined,
+        xp: (t.xp as number) ?? 0,
+        level: (t.level as number) ?? 1,
+        interests: (t.interests as string[]) ?? undefined,
+        preferredTaskFormat: (t.preferred_task_format as TeenPreferredTaskFormat) ?? undefined,
+        completedTasksCount: (t.completed_tasks_count as number) ?? undefined,
+      });
+      setCompletedTasksCount((t.completed_tasks_count as number) ?? 0);
+      setReady(true);
+    })();
     return () => {
-      window.removeEventListener(TEEN_APPLICATIONS_EVENT, onApps);
-      window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
-      window.removeEventListener("storage", onStorage);
+      active = false;
     };
-  }, [refresh, teenId]);
+  }, [teenId]);
+
+  if (!ready) return null;
 
   if (!profile) {
     return (

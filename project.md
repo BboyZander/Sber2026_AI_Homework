@@ -2,7 +2,9 @@
 
 Демо-веб‑приложение «Траектория» на **Next.js (App Router)** + **React** + **TypeScript**.
 Сценарии: подросток (поиск подработки, отклики, профиль/прогресс) и работодатель (публикация задач, работа с откликами, управление статусами).
-Хранение — **в браузере (localStorage)** с «зашитыми» демо-данными для быстрого старта.
+Хранение — **Supabase (Postgres + Auth)** с реальной авторизацией (регистрация / вход / выход по e-mail + паролю) и RLS. Демо-данные раскатываются сид-скриптами; доступен сброс к зафиксированному состоянию.
+
+> **Статус миграции (Волна 2 / эпик E0):** обе роли (подросток и работодатель) полностью переведены на Supabase — каталог, отклики, избранное, профили, задачи, управление откликами/статусами, создание/редактирование задач. Осталась только F0.6 — онбординг при первом входе. Часть демо-логики (`lib/*-flow.ts`, `lib/*-storage.ts`, `data/demo-*`, мок-сессия в `lib/auth.ts`) ещё присутствует как переходный слой и постепенно выводится.
 
 ## Основная логика продукта (коротко)
 
@@ -108,10 +110,22 @@
 ### `app/api/` — server routes
 
 - **`app/api/address-suggest/route.ts`**: прокси для адресных подсказок через Яндекс Геокодер. Использует `YANDEX_GEOCODER_API_KEY` (или `YANDEX_MAPS_API_KEY`) на сервере; если ключ не задан, форма остаётся ручной и не ломает демо.
+- **`app/api/demo-reset/route.ts`**: сброс демо-контента (задачи + отклики/избранное) к зафиксированному сид-состоянию через service-role. Гейт — только залогиненный пользователь. ⚠️ Демо-эндпоинт, на проде включать нельзя.
+- **`app/auth/callback/route.ts`**: завершение регистрации/входа (обмен кода на сессию при подтверждении e-mail + создание профиля), редирект по роли.
+
+### Supabase (БД, авторизация, слой данных)
+
+- **Клиенты**: `lib/supabase/client.ts` (браузер), `lib/supabase/server.ts` (server components / route handlers через cookies), `middleware.ts` + `lib/supabase/middleware.ts` (refresh cookie-сессии).
+- **Авторизация**: `lib/supabase/auth.ts` (`getSessionUser`, `ensureProfileForCurrentUser`); страницы `app/login`, `app/register`; выход из `components/shared/Header.tsx`.
+- **Схема и сиды**: `supabase/migrations/0001_initial_schema.sql` (таблицы `profiles`/`teen_profiles`/`employer_profiles`/`tasks`/`applications`/`favorites`), `0002_rls_policies.sql` (RLS); `supabase/seed/*` (`seed-users.mjs`, `demo-content.mjs` + `seed-content.mjs` — детерминированный генератор задач/откликов, общий для CLI и сброса).
+- **Мапперы**: `lib/supabase/mappers.ts` (`rowToTask`/`rowToApplication`/`taskToRow`), серверные запросы — `lib/supabase/queries.ts`.
+- **Клиентский слой данных** (кэш + событие, чтение/мутации через RLS): `lib/teen-favorites-client.ts`, `lib/teen-applications-client.ts`, `lib/teen-profile-client.ts`, `lib/employer-tasks-client.ts`, `lib/employer-profile-client.ts`.
+- **Env**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (см. `.env.example`).
 
 ## Стек и дизайн-система
 
 - **Next.js 15** App Router, **React 19**, **TypeScript**
+- **Supabase** (`@supabase/supabase-js`, `@supabase/ssr`) — Postgres, Auth, RLS
 - **Tailwind CSS v4** (`@import “tailwindcss”`, кастомные токены через `@theme inline`)
 - **Framer Motion v12** — анимации внутри авторизованных страниц (дашборд, профиль); на лендинге используется точечно (`LandingHero`) с учётом `prefers-reduced-motion`
 - **Шрифт**: Manrope (Google Fonts, latin + cyrillic)
@@ -162,11 +176,13 @@
 - `.ui-stack` — вертикальный стек с `--stack-gap`
 - `.page-shell` — обёртка контента с учётом сайдбара и нижней навигации
 
-## Как данные “живут” в демо
+## Как данные “живут”
 
-- Базовые данные лежат в `data/*`
-- Изменения пользователя пишутся в localStorage (задачи/отклики/профили)
-- UI подписан на события (`EMPLOYER_TASKS_EVENT`, `TEEN_APPLICATIONS_EVENT`, `PROFILE_UPDATED_EVENT`) и обновляется без сервера
+- Источник истины — **Supabase** (таблицы `tasks`/`applications`/`favorites`/`profiles`/…), доступ ограничен **RLS** по роли пользователя.
+- Клиентский слой данных (`lib/*-client.ts`) держит кэш в памяти, читает/пишет через браузер-клиент (с учётом RLS) и оповещает UI прежними событиями (`EMPLOYER_TASKS_EVENT`, `TEEN_APPLICATIONS_EVENT`, `PROFILE_UPDATED_EVENT`) — поэтому реактивность экранов сохранилась.
+- Демо-учётки (быстрый вход) — реальные пользователи Supabase из сидов (пароль общий, см. `supabase/seed/seed-users.mjs`).
+- **Сброс демо** (`/api/demo-reset`) детерминированно возвращает задачи/отклики/избранное к стартовому набору.
+- **Переходный слой:** `data/demo-*`, `lib/*-flow.ts`, `lib/*-storage.ts` и мок-сессия в `lib/auth.ts` ещё используются точечно (часть лендинга/хелперов) и выводятся по мере доработок. Цель заработка подростка пока в localStorage (`lib/teen-earning-goal.ts`) — перенос в Supabase запланирован (F16.2).
 
 ## Полезные точки входа (если нужно быстро понять код)
 
@@ -176,5 +192,6 @@
 - **Mobile-профиль подростка**: `components/teen/TeenProfileView.tsx` + `components/teen/AchievementCard.tsx`
 - **Каталог и фильтры**: `components/teen/TeenTasksCatalog.tsx` + `lib/teen-task-catalog-filter.ts`
 - **Отклик и доступность**: `components/teen/TeenTaskDetailView.tsx` + `lib/minor-compliance.ts` + `lib/task-age.ts`
-- **Данные и мердж**: `lib/*-storage.ts` + `data/demo-*.ts`
+- **Слой данных (Supabase)**: `lib/*-client.ts` (кэш + RLS) · мапперы `lib/supabase/mappers.ts` · схема/сиды `supabase/migrations` + `supabase/seed`
+- **Авторизация и сессия**: `lib/supabase/auth.ts`, `middleware.ts`, `app/login` / `app/register` / `app/auth/callback`
 
