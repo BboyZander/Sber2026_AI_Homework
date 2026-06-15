@@ -51,6 +51,7 @@ export const EMPLOYER_TOASTS = {
 export const LOGIN_COPY = {
   invalidCredentials:
     "Не вышло войти — проверь логин и пароль или выбери быстрый вход ниже.",
+  emailSignInFailed: "Не вышло войти — проверь e-mail и пароль.",
 } as const;
 
 export const TEEN_CONFIRM = {
@@ -78,6 +79,6 @@ export const EMPLOYER_TASK_VIEW_FILTER_LABELS = {
 /** Сброс демо и подсказки для показа / скринкаста */
 export const DEMO_COPY = {
   resetConfirm:
-    "Сбросить локальные данные демо? Пропадут созданные задачи, новые отклики и изменённые статусы. Вход и тема останутся.",
+    "Сбросить демо к исходному состоянию? Задачи, отклики и статусы вернутся к стартовому набору. Учётки и профили останутся.",
   resetDone: "Данные демо сброшены — можно проходить сценарий сначала.",
 } as const;

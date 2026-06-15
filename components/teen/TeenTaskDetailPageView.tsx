@@ -1,38 +1,62 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { CTAButton } from "@/components/shared/CTAButton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { TeenTaskDetailView } from "@/components/teen/TeenTaskDetailView";
-import { employerSnippet } from "@/data/employer-snippets";
-import { EMPLOYER_TASKS_EVENT, EMPLOYER_TASKS_EXTRA_KEY, getTaskByIdForFlow } from "@/lib/employer-flow";
-import { getApplications, getCurrentTeenId, TEEN_APPLICATIONS_EVENT } from "@/lib/teen-flow";
+import { createClient } from "@/lib/supabase/client";
+import { rowToTask, type TaskRow } from "@/lib/supabase/mappers";
+import {
+  TEEN_APPLICATIONS_EVENT,
+  getApplicationForTaskCached,
+  loadApplications,
+} from "@/lib/teen-applications-client";
 import type { Task } from "@/types/task";
 
 export function TeenTaskDetailPageView({ taskId }: { taskId: string }) {
   const [task, setTask] = useState<Task | null>(null);
-
-  const refresh = useCallback(() => {
-    const t = getTaskByIdForFlow(taskId);
-    const teenId = getCurrentTeenId();
-    const hasOwnApplication = getApplications(teenId).some((a) => a.taskId === taskId);
-    setTask(t && (t.status === "open" || hasOwnApplication) ? t : null);
-  }, [taskId]);
+  const [tagline, setTagline] = useState("");
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    refresh();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === EMPLOYER_TASKS_EXTRA_KEY) refresh();
-    };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener(EMPLOYER_TASKS_EVENT, refresh);
-    window.addEventListener(TEEN_APPLICATIONS_EVENT, refresh);
+    let active = true;
+
+    async function load() {
+      const supabase = createClient();
+      await loadApplications();
+      const { data } = await supabase.from("tasks").select("*").eq("id", taskId).maybeSingle();
+      if (!active) return;
+
+      if (!data) {
+        setTask(null);
+        setReady(true);
+        return;
+      }
+      const t = rowToTask(data as TaskRow);
+      // Показываем открытую задачу либо ту, на которую подросток откликнулся.
+      const hasOwnApplication = Boolean(getApplicationForTaskCached(taskId));
+      setTask(t.status === "open" || hasOwnApplication ? t : null);
+
+      const { data: emp } = await supabase
+        .from("employer_profiles")
+        .select("cabinet_description")
+        .eq("id", t.employerId)
+        .maybeSingle();
+      if (!active) return;
+      setTagline((emp as { cabinet_description: string | null } | null)?.cabinet_description ?? "");
+      setReady(true);
+    }
+
+    void load();
+    // Пересобрать при изменении откликов (отклик/отзыв меняют видимость и CTA).
+    window.addEventListener(TEEN_APPLICATIONS_EVENT, load);
     return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener(EMPLOYER_TASKS_EVENT, refresh);
-      window.removeEventListener(TEEN_APPLICATIONS_EVENT, refresh);
+      active = false;
+      window.removeEventListener(TEEN_APPLICATIONS_EVENT, load);
     };
-  }, [refresh]);
+  }, [taskId]);
+
+  if (!ready) return null;
 
   if (!task) {
     return (
@@ -45,5 +69,5 @@ export function TeenTaskDetailPageView({ taskId }: { taskId: string }) {
     );
   }
 
-  return <TeenTaskDetailView task={task} employerTagline={employerSnippet(task.employerId)} />;
+  return <TeenTaskDetailView task={task} employerTagline={tagline} />;
 }

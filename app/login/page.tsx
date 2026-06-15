@@ -49,7 +49,7 @@ export default function LoginPage() {
               <h1 className="text-xl font-extrabold tracking-tight text-ink sm:text-2xl">Вход в демо</h1>
             </div>
             <p className="text-sm leading-relaxed text-sub">
-              Выберите тестовый аккаунт или введите логин и пароль — откроются сценарии подростка и работодателя.
+              Войдите по e-mail и паролю или используйте тестовый аккаунт.
             </p>
           </div>
 
@@ -70,11 +70,21 @@ export default function LoginPage() {
                   d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
                 />
               </svg>
-              <span>Это демо: вход упрощён, без реальной интеграции. Все данные хранятся локально в браузере.</span>
+              <span>«Быстрый вход» — тестовые демо-аккаунты на локальных данных. Обычный вход по e-mail — реальный аккаунт.</span>
             </div>
 
             <LoginScreen />
             <LoginDemoReset />
+
+            <p className="mt-6 text-center text-sm text-sub">
+              Нет аккаунта?{" "}
+              <Link
+                href="/register"
+                className="font-semibold text-accent-bright underline-offset-4 hover:underline"
+              >
+                Зарегистрироваться
+              </Link>
+            </p>
           </div>
         </div>
 

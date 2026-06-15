@@ -2,24 +2,24 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ApplicationStatus } from "@/lib/constants";
 import { APPLICATION_STATUS_LABELS } from "@/lib/constants";
+import { pushTeenToast } from "@/lib/teen-flow";
 import {
   TEEN_APPLICATIONS_EVENT,
-  TEEN_APPLICATIONS_EXTRA_KEY,
-  TEEN_APPLICATIONS_OVERRIDES_KEY,
-  TEEN_APPLICATIONS_WITHDRAWN_KEY,
-  canWithdrawApplication,
-  getApplications,
-  getCurrentTeenId,
-  pushTeenToast,
-  updateApplicationStatus,
+  canWithdraw,
+  getApplicationsCached,
+  loadApplications,
+  markSubmitted,
   withdrawApplication,
-} from "@/lib/teen-flow";
+} from "@/lib/teen-applications-client";
+import { createClient } from "@/lib/supabase/client";
+import { rowToTask, type TaskRow } from "@/lib/supabase/mappers";
 import { TEEN_CONFIRM, TEEN_SAFETY_TIPS, TEEN_TOASTS } from "@/lib/ui-copy";
-import { getTaskByIdForFlow } from "@/lib/employer-flow";
 import { ApplicationCard } from "@/components/teen/ApplicationCard";
+import type { Application } from "@/types/application";
+import type { Task } from "@/types/task";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { SectionTitle } from "@/components/shared/SectionTitle";
 
@@ -53,34 +53,40 @@ const ACTIVE_STATUSES: ApplicationStatus[] = ["accepted", "submitted"];
 const HISTORY_STATUSES: ApplicationStatus[] = ["applied", "rejected", "paid"];
 
 export function TeenApplicationsView() {
-  const [list, setList] = useState<ReturnType<typeof getApplications>>([]);
+  const [list, setList] = useState<Application[]>([]);
+  const [tasksById, setTasksById] = useState<Record<string, Task>>({});
   const [filter, setFilter] = useState<ApplicationStatus | "all">("all");
   const [mounted, setMounted] = useState(false);
 
-  const refresh = useCallback(() => {
-    setList(getApplications());
-  }, []);
-
   useEffect(() => {
-    setMounted(true);
-    refresh();
-    const onStorage = (e: StorageEvent) => {
-      if (
-        e.key === TEEN_APPLICATIONS_EXTRA_KEY ||
-        e.key === TEEN_APPLICATIONS_WITHDRAWN_KEY ||
-        e.key === TEEN_APPLICATIONS_OVERRIDES_KEY
-      ) {
-        refresh();
+    let active = true;
+
+    async function init() {
+      await loadApplications();
+      if (!active) return;
+      const apps = getApplicationsCached();
+      setList(apps);
+
+      const ids = [...new Set(apps.map((a) => a.taskId))];
+      if (ids.length > 0) {
+        const supabase = createClient();
+        const { data } = await supabase.from("tasks").select("*").in("id", ids);
+        if (!active) return;
+        const map: Record<string, Task> = {};
+        for (const row of (data ?? []) as TaskRow[]) map[row.id] = rowToTask(row);
+        setTasksById(map);
       }
-    };
-    const onCustom = () => refresh();
-    window.addEventListener("storage", onStorage);
+      setMounted(true);
+    }
+
+    void init();
+    const onCustom = () => setList(getApplicationsCached());
     window.addEventListener(TEEN_APPLICATIONS_EVENT, onCustom);
     return () => {
-      window.removeEventListener("storage", onStorage);
+      active = false;
       window.removeEventListener(TEEN_APPLICATIONS_EVENT, onCustom);
     };
-  }, [refresh]);
+  }, []);
 
   const active = useMemo(
     () => list.filter((a) => ACTIVE_STATUSES.includes(a.status)),
@@ -99,21 +105,15 @@ export function TeenApplicationsView() {
     setFilter("all");
   }
 
-  const teenId = getCurrentTeenId();
-
-  function handleWithdraw(app: (typeof list)[number]) {
-    if (
-      !window.confirm(TEEN_CONFIRM.withdrawFromList)
-    ) {
+  async function handleWithdraw(app: Application) {
+    if (!window.confirm(TEEN_CONFIRM.withdrawFromList)) {
       return;
     }
-    withdrawApplication(app, teenId);
-    refresh();
+    await withdrawApplication(app.taskId);
   }
 
-  function handleMarkCompleted(app: (typeof list)[number]) {
-    const ok = updateApplicationStatus(app.id, "submitted");
-    refresh();
+  async function handleMarkCompleted(app: Application) {
+    const ok = await markSubmitted(app.taskId);
     if (ok) pushTeenToast(TEEN_TOASTS.markedCompleted);
   }
 
@@ -177,7 +177,7 @@ export function TeenApplicationsView() {
                     >
                       <ApplicationCard
                         application={app}
-                        task={getTaskByIdForFlow(app.taskId) ?? undefined}
+                        task={tasksById[app.taskId]}
                         showMarkCompleted={app.status === "accepted"}
                         onMarkCompleted={() => handleMarkCompleted(app)}
                       />
@@ -257,8 +257,8 @@ export function TeenApplicationsView() {
                         >
                           <ApplicationCard
                             application={app}
-                            task={getTaskByIdForFlow(app.taskId) ?? undefined}
-                            showWithdraw={canWithdrawApplication(app)}
+                            task={tasksById[app.taskId]}
+                            showWithdraw={canWithdraw(app)}
                             onWithdraw={() => handleWithdraw(app)}
                           />
                         </motion.li>

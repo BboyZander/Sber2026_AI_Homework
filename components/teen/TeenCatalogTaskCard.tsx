@@ -13,8 +13,11 @@ import {
 import { formatDate } from "@/lib/helpers";
 import { formatTaskAgeRange } from "@/lib/task-age";
 import { taskPaymentTeenEstimatedTotalLine, taskPaymentTeenPrimaryLine } from "@/lib/task-payment";
-import { TEEN_APPLICATIONS_EVENT, getApplications, getCurrentTeenId } from "@/lib/teen-flow";
-import { TEEN_FAVORITES_EVENT, isFavoriteTask, toggleFavoriteTask } from "@/lib/teen-favorites-storage";
+import {
+  TEEN_APPLICATIONS_EVENT,
+  getApplicationForTaskCached,
+} from "@/lib/teen-applications-client";
+import { TEEN_FAVORITES_EVENT, isFavoriteCached, toggleFavorite } from "@/lib/teen-favorites-client";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
 function HeartIcon({ filled }: { filled: boolean }) {
@@ -68,8 +71,7 @@ export function TeenCatalogTaskCard({ task }: { task: Task }) {
 
   useEffect(() => {
     function sync() {
-      const app = getApplications().find((a) => a.taskId === task.id);
-      setAppliedStatus(app?.status ?? null);
+      setAppliedStatus(getApplicationForTaskCached(task.id)?.status ?? null);
     }
     sync();
     window.addEventListener(TEEN_APPLICATIONS_EVENT, sync);
@@ -78,7 +80,7 @@ export function TeenCatalogTaskCard({ task }: { task: Task }) {
 
   useEffect(() => {
     function sync() {
-      setIsFavorite(isFavoriteTask(getCurrentTeenId(), task.id));
+      setIsFavorite(isFavoriteCached(task.id));
     }
     sync();
     window.addEventListener(TEEN_FAVORITES_EVENT, sync);
@@ -88,7 +90,7 @@ export function TeenCatalogTaskCard({ task }: { task: Task }) {
   function handleToggleFavorite(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    setIsFavorite(toggleFavoriteTask(getCurrentTeenId(), task.id));
+    void toggleFavorite(task.id);
   }
 
   return (

@@ -11,19 +11,18 @@ import {
   MINOR_COMPLIANCE_STATUS_LABELS,
   WORK_FORMAT_LABELS,
 } from "@/lib/constants";
+import { TEEN_FLOW_TOAST_EVENT, type TeenFlowToastDetail } from "@/lib/teen-flow";
 import {
   TEEN_APPLICATIONS_EVENT,
-  TEEN_FLOW_TOAST_EVENT,
   applyToTask,
-  canWithdrawApplication,
-  getApplications,
-  getCurrentTeenId,
+  canWithdraw,
+  getApplicationForTaskCached,
   withdrawApplication,
-  type TeenFlowToastDetail,
-} from "@/lib/teen-flow";
+} from "@/lib/teen-applications-client";
 import { formatDate } from "@/lib/helpers";
 import { currentMinorPeriod, getMinorComplianceResult } from "@/lib/minor-compliance";
-import { getTeenProfile, PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-store";
+import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-sync";
+import { getTeenProfileCached, loadTeenProfile } from "@/lib/teen-profile-client";
 import { formatTaskAgeRange, taskHasDefinedAgeRange, teenCanRespondByAge } from "@/lib/task-age";
 import {
   taskHourlyEarningsBreakdown,
@@ -47,8 +46,11 @@ export function TeenTaskDetailView({
   const [applied, setApplied] = useState(false);
   const [applyBusy, setApplyBusy] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [teenProfile, setTeenProfile] = useState<TeenProfile>(() => getTeenProfile());
-  const teenAge = typeof teenProfile.age === "number" && Number.isFinite(teenProfile.age) ? teenProfile.age : undefined;
+  const [teenProfile, setTeenProfile] = useState<TeenProfile | null>(null);
+  const teenAge =
+    teenProfile && typeof teenProfile.age === "number" && Number.isFinite(teenProfile.age)
+      ? teenProfile.age
+      : undefined;
 
   const liveCompliance = useMemo(
     () =>
@@ -88,8 +90,10 @@ export function TeenTaskDetailView({
 
   useEffect(() => {
     function syncProfile() {
-      setTeenProfile(getTeenProfile());
+      setTeenProfile(getTeenProfileCached());
     }
+    void loadTeenProfile();
+    syncProfile();
     function onProfile(e: Event) {
       const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
       if (d?.role === "teen") syncProfile();
@@ -98,12 +102,14 @@ export function TeenTaskDetailView({
     return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
   }, []);
 
-  const fitReasons = useMemo(() => computeTaskFitReasons(task, teenProfile), [task, teenProfile]);
+  const fitReasons = useMemo(
+    () => (teenProfile ? computeTaskFitReasons(task, teenProfile) : []),
+    [task, teenProfile],
+  );
 
   const syncApplied = useCallback(() => {
     if (typeof window === "undefined") return;
-    const teenId = getCurrentTeenId();
-    setApplied(getApplications(teenId).some((a) => a.taskId === task.id));
+    setApplied(Boolean(getApplicationForTaskCached(task.id)));
   }, [task.id]);
 
   useEffect(() => {
@@ -132,29 +138,33 @@ export function TeenTaskDetailView({
       return;
     }
     setApplyBusy(true);
-    window.setTimeout(() => {
-      const { added } = applyToTask(task.id);
-      if (added) setApplied(true);
+    window.setTimeout(async () => {
+      const { added } = await applyToTask(task.id);
+      if (added) {
+        setApplied(true);
+        window.dispatchEvent(
+          new CustomEvent<TeenFlowToastDetail>(TEEN_FLOW_TOAST_EVENT, {
+            detail: { message: TEEN_TOASTS.applySuccess },
+          }),
+        );
+      }
       syncApplied();
       setApplyBusy(false);
     }, 260);
   }
 
-  const teenId = getCurrentTeenId();
   const currentApp =
     mounted && typeof window !== "undefined"
-      ? getApplications(teenId).find((a) => a.taskId === task.id)
-      : undefined;
-  const canWithdraw = Boolean(currentApp && canWithdrawApplication(currentApp));
+      ? getApplicationForTaskCached(task.id)
+      : null;
+  const canWithdrawCurrent = Boolean(currentApp && canWithdraw(currentApp));
 
-  function handleWithdraw() {
+  async function handleWithdraw() {
     if (!currentApp) return;
-    if (
-      !window.confirm(TEEN_CONFIRM.withdrawFromTask)
-    ) {
+    if (!window.confirm(TEEN_CONFIRM.withdrawFromTask)) {
       return;
     }
-    withdrawApplication(currentApp, teenId);
+    await withdrawApplication(task.id);
     syncApplied();
   }
 
@@ -260,7 +270,7 @@ export function TeenTaskDetailView({
           {applyBlockedHint ? (
             <p className="m-0 text-center text-xs leading-relaxed text-sub">{applyBlockedHint}</p>
           ) : null}
-          {applied && canWithdraw ? (
+          {applied && canWithdrawCurrent ? (
             <button
               type="button"
               onClick={handleWithdraw}
@@ -498,7 +508,7 @@ export function TeenTaskDetailView({
           {applyBlockedHint ? (
             <p className="m-0 text-center text-xs leading-relaxed text-sub">{applyBlockedHint}</p>
           ) : null}
-          {applied && canWithdraw ? (
+          {applied && canWithdrawCurrent ? (
             <button
               type="button"
               onClick={handleWithdraw}

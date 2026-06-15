@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { APPLICATION_STATUS_LABELS } from "@/lib/constants";
-import { computeTeenActivityStats } from "@/lib/teen-activity-stats";
-import { getTaskByIdForFlow } from "@/lib/employer-flow";
 import { formatRub } from "@/lib/helpers";
-import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-store";
-import { resolveSessionTeen } from "@/lib/teen-profile";
-import { TEEN_APPLICATIONS_EVENT, getApplications } from "@/lib/teen-flow";
+import { createClient } from "@/lib/supabase/client";
+import { rowToTask, type TaskRow } from "@/lib/supabase/mappers";
+import { taskComparablePayRub } from "@/lib/task-payment";
+import {
+  TEEN_APPLICATIONS_EVENT,
+  getApplicationsCached,
+  loadApplications,
+} from "@/lib/teen-applications-client";
 import {
   TEEN_EARNING_GOAL_EVENT,
   getTeenEarningGoal,
@@ -46,24 +49,9 @@ function EarningGoalRing({ progress, size = 56, strokeWidth = 6 }: { progress: n
   );
 }
 
-/** Активная задача = ближайший по приоритету отклик (в работе → на проверке → отправлен). */
-function pickActiveTask(teenId: string): ActiveTaskInfo {
-  const apps = getApplications(teenId);
-  const byPriority =
-    apps.find((a) => a.status === "accepted") ??
-    apps.find((a) => a.status === "submitted") ??
-    apps.find((a) => a.status === "applied");
-  if (!byPriority) return null;
-  const task = getTaskByIdForFlow(byPriority.taskId);
-  return {
-    taskId: byPriority.taskId,
-    title: task?.title ?? "Задача",
-    statusLabel: APPLICATION_STATUS_LABELS[byPriority.status],
-  };
-}
-
 export function TeenHomeView({ teen: initialTeen }: { teen: TeenProfile }) {
-  const [teen, setTeen] = useState(initialTeen);
+  const [teenName, setTeenName] = useState(initialTeen.name);
+  const [teenId, setTeenId] = useState<string | null>(null);
   const [active, setActive] = useState<ActiveTaskInfo>(null);
   const [earnedRub, setEarnedRub] = useState(0);
   const [goalRub, setGoalRub] = useState(0);
@@ -71,29 +59,74 @@ export function TeenHomeView({ teen: initialTeen }: { teen: TeenProfile }) {
   const [goalDraft, setGoalDraft] = useState("");
   const goalInputId = useId();
 
-  const refresh = useCallback(() => {
-    const t = resolveSessionTeen(initialTeen);
-    setTeen(t);
-    setActive(pickActiveTask(t.id));
-    setEarnedRub(computeTeenActivityStats(getApplications(t.id)).earnedDemoRub);
-    setGoalRub(getTeenEarningGoal(t.id));
-  }, [initialTeen]);
-
   useEffect(() => {
-    refresh();
-    function onProfile(e: Event) {
-      const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
-      if (d?.role === "teen" && d.userId === initialTeen.id) refresh();
+    let alive = true;
+
+    async function load() {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || !alive) return;
+      setTeenId(user.id);
+      setGoalRub(getTeenEarningGoal(user.id));
+
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("name")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (alive && prof?.name) setTeenName(prof.name as string);
+
+      await loadApplications();
+      if (!alive) return;
+      const apps = getApplicationsCached();
+
+      const ids = [...new Set(apps.map((a) => a.taskId))];
+      const tasksById: Record<string, ReturnType<typeof rowToTask>> = {};
+      if (ids.length > 0) {
+        const { data } = await supabase.from("tasks").select("*").in("id", ids);
+        for (const row of (data ?? []) as TaskRow[]) tasksById[row.id] = rowToTask(row);
+      }
+      if (!alive) return;
+
+      const byPriority =
+        apps.find((a) => a.status === "accepted") ??
+        apps.find((a) => a.status === "submitted") ??
+        apps.find((a) => a.status === "applied");
+      setActive(
+        byPriority
+          ? {
+              taskId: byPriority.taskId,
+              title: tasksById[byPriority.taskId]?.title ?? "Задача",
+              statusLabel: APPLICATION_STATUS_LABELS[byPriority.status],
+            }
+          : null,
+      );
+
+      let earned = 0;
+      for (const a of apps) {
+        if (a.status === "paid" && tasksById[a.taskId]) {
+          earned += taskComparablePayRub(tasksById[a.taskId]);
+        }
+      }
+      setEarnedRub(earned);
     }
-    window.addEventListener(PROFILE_UPDATED_EVENT, onProfile);
-    window.addEventListener(TEEN_APPLICATIONS_EVENT, refresh);
-    window.addEventListener(TEEN_EARNING_GOAL_EVENT, refresh);
+
+    function onGoal() {
+      if (teenId) setGoalRub(getTeenEarningGoal(teenId));
+    }
+
+    void load();
+    window.addEventListener(TEEN_APPLICATIONS_EVENT, load);
+    window.addEventListener(TEEN_EARNING_GOAL_EVENT, onGoal);
     return () => {
-      window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
-      window.removeEventListener(TEEN_APPLICATIONS_EVENT, refresh);
-      window.removeEventListener(TEEN_EARNING_GOAL_EVENT, refresh);
+      alive = false;
+      window.removeEventListener(TEEN_APPLICATIONS_EVENT, load);
+      window.removeEventListener(TEEN_EARNING_GOAL_EVENT, onGoal);
     };
-  }, [refresh, initialTeen.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function openGoalEditor() {
     setGoalDraft(String(goalRub));
@@ -103,8 +136,9 @@ export function TeenHomeView({ teen: initialTeen }: { teen: TeenProfile }) {
   function saveGoal(e: React.FormEvent) {
     e.preventDefault();
     const parsed = Number(goalDraft.replace(/\s/g, ""));
-    if (Number.isFinite(parsed) && parsed > 0) {
-      setTeenEarningGoal(teen.id, parsed);
+    if (Number.isFinite(parsed) && parsed > 0 && teenId) {
+      setTeenEarningGoal(teenId, parsed);
+      setGoalRub(parsed);
     }
     setEditingGoal(false);
   }
@@ -114,7 +148,7 @@ export function TeenHomeView({ teen: initialTeen }: { teen: TeenProfile }) {
       <header>
         <p className="text-[0.7rem] font-bold uppercase tracking-widest text-accent/80">Главная</p>
         <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
-          Привет, {teen.name}!
+          Привет, {teenName}!
         </h1>
       </header>
 

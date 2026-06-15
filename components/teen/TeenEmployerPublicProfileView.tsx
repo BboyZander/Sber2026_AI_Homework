@@ -1,52 +1,78 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { CATEGORY_LABELS } from "@/lib/constants";
-import {
-  EMPLOYER_TASKS_EVENT,
-  getEmployerTaskViewStatus,
-  getEmployerTasks,
-} from "@/lib/employer-flow";
+import { CATEGORY_LABELS, type TaskCategory } from "@/lib/constants";
 import { EMPLOYER_CUSTOMER_TYPE_LABELS } from "@/lib/employer-profile";
-import { getPublicEmployerProfile } from "@/lib/public-profiles";
-import { PROFILE_STORAGE_KEYS } from "@/lib/profile-store";
-import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-sync";
-import type { EmployerProfile } from "@/types/user";
+import { createClient } from "@/lib/supabase/client";
+import type { EmployerCustomerType, EmployerProfile } from "@/types/user";
 
 export function TeenEmployerPublicProfileView({ employerId }: { employerId: string }) {
   const [profile, setProfile] = useState<EmployerProfile | null>(null);
   const [publishedCount, setPublishedCount] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
-
-  const refresh = useCallback(() => {
-    const p = getPublicEmployerProfile(employerId);
-    setProfile(p);
-    if (!p) return;
-    const tasks = getEmployerTasks(employerId);
-    setPublishedCount(tasks.filter((t) => t.status === "open").length);
-    setCompletedCount(tasks.filter((t) => getEmployerTaskViewStatus(t) === "completed").length);
-  }, [employerId]);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    refresh();
-    function onProfileUpdated(e: Event) {
-      const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
-      if (!d || (d.role === "employer" && d.userId === employerId)) refresh();
-    }
-    function onStorage(e: StorageEvent) {
-      if (e.key === PROFILE_STORAGE_KEYS.employer) refresh();
-    }
-    window.addEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
-    window.addEventListener(EMPLOYER_TASKS_EVENT, refresh);
-    window.addEventListener("storage", onStorage);
+    let active = true;
+    (async () => {
+      const supabase = createClient();
+      const { data: base } = await supabase
+        .from("profiles")
+        .select("name, email, city, role")
+        .eq("id", employerId)
+        .maybeSingle();
+      if (!active) return;
+
+      if (!base || base.role !== "employer") {
+        setProfile(null);
+        setReady(true);
+        return;
+      }
+
+      const { data: emp } = await supabase
+        .from("employer_profiles")
+        .select("*")
+        .eq("id", employerId)
+        .maybeSingle();
+      if (!active) return;
+
+      const e = (emp ?? {}) as Record<string, unknown>;
+      setProfile({
+        id: employerId,
+        email: (base.email as string) ?? "",
+        name: base.name as string,
+        role: "employer",
+        city: (base.city as string) ?? undefined,
+        companyName: (e.company_name as string) ?? (base.name as string),
+        inn: (e.inn as string) ?? undefined,
+        innIp: (e.inn_ip as string) ?? undefined,
+        ogrn: (e.ogrn as string) ?? undefined,
+        ogrnip: (e.ogrnip as string) ?? undefined,
+        verified: (e.verified as boolean) ?? undefined,
+        customerType: (e.customer_type as EmployerCustomerType) ?? undefined,
+        taskCategories: (e.task_categories as TaskCategory[]) ?? undefined,
+        cabinetDescription: (e.cabinet_description as string) ?? undefined,
+        cabinetTags: (e.cabinet_tags as string[]) ?? undefined,
+      });
+
+      const { data: tasks } = await supabase
+        .from("tasks")
+        .select("status")
+        .eq("employer_id", employerId);
+      if (!active) return;
+      const rows = (tasks ?? []) as { status: string }[];
+      setPublishedCount(rows.filter((t) => t.status === "open").length);
+      setCompletedCount(rows.filter((t) => t.status === "completed").length);
+      setReady(true);
+    })();
     return () => {
-      window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
-      window.removeEventListener(EMPLOYER_TASKS_EVENT, refresh);
-      window.removeEventListener("storage", onStorage);
+      active = false;
     };
-  }, [refresh, employerId]);
+  }, [employerId]);
+
+  if (!ready) return null;
 
   if (!profile) {
     return (
@@ -163,10 +189,10 @@ export function TeenEmployerPublicProfileView({ employerId }: { employerId: stri
       </section>
 
       <section className="ui-card border-edge-strong">
-        <h2 className="m-0 text-sm font-semibold uppercase tracking-wider text-sub">Активность в демо</h2>
+        <h2 className="m-0 text-sm font-semibold uppercase tracking-wider text-sub">Активность</h2>
         <dl className="mt-2 grid gap-2 sm:grid-cols-2">
           <div className="rounded-xl border border-edge bg-panel px-3 py-2">
-            <dt className="text-xs text-sub">Опубликовано задач</dt>
+            <dt className="text-xs text-sub">Открытых задач</dt>
             <dd className="m-0 mt-1 text-lg font-semibold text-ink">{publishedCount}</dd>
           </div>
           <div className="rounded-xl border border-edge bg-panel px-3 py-2">

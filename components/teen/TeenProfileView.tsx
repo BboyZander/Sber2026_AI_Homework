@@ -13,9 +13,20 @@ import { toDashboardDisplayStats } from "@/data/teen-dashboard";
 import { formatDate, formatRub, formatXp } from "@/lib/helpers";
 import { taskComparablePayRub } from "@/lib/task-payment";
 import { computeTeenActivityStats } from "@/lib/teen-activity-stats";
-import { getTaskByIdForFlow } from "@/lib/employer-flow";
-import { TEEN_APPLICATIONS_EVENT, getApplications, pushTeenToast } from "@/lib/teen-flow";
-import { PROFILE_UPDATED_EVENT, updateTeenProfile, type ProfileUpdatedDetail } from "@/lib/profile-store";
+import { pushTeenToast } from "@/lib/teen-flow";
+import {
+  TEEN_APPLICATIONS_EVENT,
+  getApplicationsCached,
+  loadApplications,
+} from "@/lib/teen-applications-client";
+import {
+  getTeenProfileCached,
+  loadTeenProfile,
+  updateTeenProfileFields,
+} from "@/lib/teen-profile-client";
+import { createClient } from "@/lib/supabase/client";
+import { rowToTask, type TaskRow } from "@/lib/supabase/mappers";
+import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-sync";
 import { buildTeenProfileHint } from "@/lib/teen-profile-hint";
 import { teenInterestLabel } from "@/lib/teen-interest-labels";
 import {
@@ -23,7 +34,6 @@ import {
   TEEN_PREFERRED_FORMATS,
   getTeenInterestCodes,
   profilePatchFromTeen,
-  resolveSessionTeen,
   type TeenProfileEditablePatch,
   validateTeenProfilePatch,
 } from "@/lib/teen-profile";
@@ -90,6 +100,7 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
   const [mounted, setMounted] = useState(false);
   const [teen, setTeen] = useState(initialTeen);
   const [apps, setApps] = useState<Application[]>([]);
+  const [tasksById, setTasksById] = useState<Record<string, ReturnType<typeof rowToTask>>>({});
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ProfileFormDraft | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; age?: string }>({});
@@ -104,26 +115,43 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
     [draft, dirtyBaseline],
   );
 
-  const refresh = useCallback(() => {
-    const t = resolveSessionTeen(initialTeen);
-    setTeen(t);
-    setApps(getApplications(t.id));
-  }, [initialTeen]);
+  const refresh = useCallback(async () => {
+    const p = (await loadTeenProfile()) ?? getTeenProfileCached();
+    if (p) setTeen(p);
+    await loadApplications();
+    const a = getApplicationsCached();
+    setApps(a);
+
+    const ids = [...new Set(a.map((x) => x.taskId))];
+    if (ids.length > 0) {
+      const supabase = createClient();
+      const { data } = await supabase.from("tasks").select("*").in("id", ids);
+      const map: Record<string, ReturnType<typeof rowToTask>> = {};
+      for (const row of (data ?? []) as TaskRow[]) map[row.id] = rowToTask(row);
+      setTasksById(map);
+    } else {
+      setTasksById({});
+    }
+  }, []);
 
   useEffect(() => {
     setMounted(true);
-    refresh();
+    void refresh();
+    const onApps = () => setApps(getApplicationsCached());
     function onProfile(e: Event) {
       const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
-      if (d?.role === "teen" && d.userId === initialTeen.id) refresh();
+      if (d?.role === "teen") {
+        const p = getTeenProfileCached();
+        if (p) setTeen(p);
+      }
     }
-    window.addEventListener(TEEN_APPLICATIONS_EVENT, refresh);
+    window.addEventListener(TEEN_APPLICATIONS_EVENT, onApps);
     window.addEventListener(PROFILE_UPDATED_EVENT, onProfile);
     return () => {
-      window.removeEventListener(TEEN_APPLICATIONS_EVENT, refresh);
+      window.removeEventListener(TEEN_APPLICATIONS_EVENT, onApps);
       window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
     };
-  }, [refresh, initialTeen.id]);
+  }, [refresh]);
 
   useEffect(() => {
     if (!savedOk) return;
@@ -166,15 +194,14 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
       setFieldErrors({ name: v.nameError, age: v.ageError });
       return;
     }
-    updateTeenProfile(v.patch, teen.id);
+    void updateTeenProfileFields(v.patch);
     setEditing(false);
     setDraft(null);
     setFieldErrors({});
     setDirtyBaseline(null);
-    refresh();
     setSavedOk(true);
     pushTeenToast(TEEN_TOASTS.profileSaved);
-  }, [draft, teen.id, refresh]);
+  }, [draft]);
 
   const toggleInterest = useCallback((code: string) => {
     setDraft((d) => {
@@ -206,7 +233,7 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
     );
   }
 
-  const activity = computeTeenActivityStats(apps);
+  const activity = computeTeenActivityStats(apps, (id) => tasksById[id]);
   const dash = toDashboardDisplayStats(teen, activity);
   const currentXp = dash.xp;
   const nextLevelXp = dash.nextLevelXp;
@@ -214,7 +241,7 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
   const interests = teen.interests?.length ? teen.interests : [];
   const walletHistory = apps
     .filter((a) => a.status === "paid")
-    .map((a) => ({ app: a, task: getTaskByIdForFlow(a.taskId) }))
+    .map((a) => ({ app: a, task: tasksById[a.taskId] }))
     .sort((a, b) => new Date(b.app.createdAt).getTime() - new Date(a.app.createdAt).getTime());
 
   const sectionEase = reduceMotion ? undefined : ([0.22, 1, 0.36, 1] as const);

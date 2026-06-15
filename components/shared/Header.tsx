@@ -4,47 +4,54 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import {
-  type MockSession,
-  clearMockSession,
-  getDemoUserById,
-  getMockSession,
-} from "@/lib/auth";
+import { clearMockSession } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/client";
 import { ThemeSwitcher } from "@/components/shared/ThemeSwitcher";
-import { clearDemoPersistedState } from "@/lib/demo-state";
-import { getEmployerProfileMerged } from "@/lib/employer-profile";
-import { pushEmployerToast } from "@/lib/employer-flow";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profile-store";
-import { pushTeenToast } from "@/lib/teen-flow";
-import { getTeenProfileMerged } from "@/lib/teen-profile";
 import { DEMO_COPY } from "@/lib/ui-copy";
-import type { EmployerProfile, TeenProfile } from "@/types/user";
 
-function labelForUser(user: NonNullable<ReturnType<typeof getDemoUserById>>): string {
-  const { login: _l, password: _p, ...rest } = user;
-  if (typeof window === "undefined") {
-    return user.role === "teen" ? user.name : user.companyName;
-  }
-  if (user.role === "teen") {
-    return getTeenProfileMerged(rest as TeenProfile).name;
-  }
-  if (user.role === "employer") {
-    return getEmployerProfileMerged(rest as EmployerProfile).companyName;
-  }
-  return rest.name;
-}
+type HeaderUser = { id: string; name: string; role: "teen" | "employer" };
 
 export function Header({ title }: { title?: string }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [session, setSession] = useState<MockSession | null>(null);
+  const [user, setUser] = useState<HeaderUser | null>(null);
   const [open, setOpen] = useState(false);
-  const [, setProfileRev] = useState(0);
+  const [profileRev, setProfileRev] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Реальный пользователь из сессии Supabase (имя/роль для шапки).
   useEffect(() => {
-    setSession(getMockSession());
-  }, [pathname]);
+    let active = true;
+    const supabase = createClient();
+    (async () => {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      if (!authUser) {
+        if (active) setUser(null);
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("name, role")
+        .eq("id", authUser.id)
+        .maybeSingle();
+      if (!active) return;
+      setUser(
+        profile
+          ? {
+              id: authUser.id,
+              name: profile.name,
+              role: profile.role === "employer" ? "employer" : "teen",
+            }
+          : null,
+      );
+    })();
+    return () => {
+      active = false;
+    };
+  }, [pathname, profileRev]);
 
   useEffect(() => {
     function bumpProfileLabel() {
@@ -67,26 +74,26 @@ export function Header({ title }: { title?: string }) {
     return () => document.removeEventListener("mousedown", handle);
   }, [open]);
 
-  const user = session ? getDemoUserById(session.userId) : null;
-  const loggedIn = Boolean(session && user);
-
-  function logout() {
+  async function logout() {
+    // Закрываем реальную сессию Supabase (если есть) и чистим демо-мок-сессию.
+    await createClient().auth.signOut();
     clearMockSession();
     setOpen(false);
-    setSession(null);
+    setUser(null);
     router.push("/login");
     router.refresh();
   }
 
-  function resetDemoData() {
+  async function resetDemoData() {
     setOpen(false);
     if (!confirm(DEMO_COPY.resetConfirm)) return;
-    clearDemoPersistedState();
-    const s = getMockSession();
-    const u = s ? getDemoUserById(s.userId) : null;
-    if (u?.role === "employer") pushEmployerToast(DEMO_COPY.resetDone);
-    else if (u?.role === "teen") pushTeenToast(DEMO_COPY.resetDone);
-    router.refresh();
+    const res = await fetch("/api/demo-reset", { method: "POST" });
+    if (res.ok) {
+      // Перезагрузка — сбросить и серверные данные, и клиентские кэши.
+      window.location.reload();
+    } else {
+      alert("Не удалось сбросить демо-данные. Попробуй ещё раз.");
+    }
   }
 
   return (
@@ -108,7 +115,7 @@ export function Header({ title }: { title?: string }) {
 
       <ThemeSwitcher />
 
-      {loggedIn && user ? (
+      {user ? (
         <div className="relative shrink-0" ref={menuRef}>
           <button
             type="button"
@@ -117,7 +124,7 @@ export function Header({ title }: { title?: string }) {
             aria-expanded={open}
             aria-haspopup="menu"
           >
-            <span className="truncate">{labelForUser(user)}</span>
+            <span className="truncate">{user.name}</span>
             <span className="text-sub" aria-hidden>
               ▾
             </span>

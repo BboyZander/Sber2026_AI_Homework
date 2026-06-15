@@ -1,31 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { TeenTasksCatalog } from "@/components/teen/TeenTasksCatalog";
-import { EMPLOYER_TASKS_EVENT, EMPLOYER_TASKS_EXTRA_KEY, getPublishedTasksForTeen } from "@/lib/employer-flow";
+import { createClient } from "@/lib/supabase/client";
+import { rowToTask, type TaskRow } from "@/lib/supabase/mappers";
 import type { Task } from "@/types/task";
 
 export function TeenTasksCatalogView() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [ready, setReady] = useState(false);
 
-  const refresh = useCallback(() => {
-    setTasks(getPublishedTasksForTeen());
-  }, []);
-
   useEffect(() => {
-    refresh();
-    setReady(true);
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === EMPLOYER_TASKS_EXTRA_KEY) refresh();
-    };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener(EMPLOYER_TASKS_EVENT, refresh);
+    let active = true;
+    (async () => {
+      const supabase = createClient();
+      // RLS отдаёт открытые задачи авторизованному подростку (cookie-сессия).
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("status", "open")
+        .order("created_at", { ascending: false });
+      if (!active) return;
+      if (!error && data) setTasks((data as TaskRow[]).map(rowToTask));
+      setReady(true);
+    })();
     return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener(EMPLOYER_TASKS_EVENT, refresh);
+      active = false;
     };
-  }, [refresh]);
+  }, []);
 
   return <TeenTasksCatalog tasks={tasks} loading={!ready} />;
 }

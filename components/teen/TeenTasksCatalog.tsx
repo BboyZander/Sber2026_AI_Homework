@@ -17,9 +17,10 @@ import { TeenCatalogSkeletonList } from "@/components/shared/Skeleton";
 import { TeenCatalogTaskCard } from "@/components/teen/TeenCatalogTaskCard";
 import { TeenTaskFiltersDrawer, teenCatalogDrawerDefaults, type DrawerFilterState } from "@/components/teen/TeenTaskFiltersDrawer";
 import { TeenTasksCatalogActiveChips, type ActiveChip } from "@/components/teen/TeenTasksCatalogActiveChips";
-import { getTeenProfile, PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-store";
-import { getCurrentTeenId } from "@/lib/teen-flow";
-import { TEEN_FAVORITES_EVENT, getFavoriteTaskIds } from "@/lib/teen-favorites-storage";
+import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-sync";
+import { getTeenProfileCached, loadTeenProfile } from "@/lib/teen-profile-client";
+import { loadApplications } from "@/lib/teen-applications-client";
+import { TEEN_FAVORITES_EVENT, getFavoriteIdsCached, loadFavorites } from "@/lib/teen-favorites-client";
 import {
   filterTeenCatalogTasks,
   type TeenCatalogAgeFit,
@@ -96,13 +97,14 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
 
   useEffect(() => {
     function syncAge() {
-      const a = getTeenProfile().age;
+      const a = getTeenProfileCached()?.age;
       const n = typeof a === "number" && Number.isFinite(a) ? a : undefined;
       setTeenAge(n);
       if (n === undefined) {
         setAgeFitMode((m) => (m === "mine" ? "all" : m));
       }
     }
+    void loadTeenProfile();
     syncAge();
     function onProfile(e: Event) {
       const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
@@ -114,8 +116,10 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
 
   useEffect(() => {
     function syncFavorites() {
-      setFavoriteIds(new Set(getFavoriteTaskIds(getCurrentTeenId())));
+      setFavoriteIds(new Set(getFavoriteIdsCached()));
     }
+    void loadFavorites();
+    void loadApplications();
     syncFavorites();
     window.addEventListener(TEEN_FAVORITES_EVENT, syncFavorites);
     return () => window.removeEventListener(TEEN_FAVORITES_EVENT, syncFavorites);
