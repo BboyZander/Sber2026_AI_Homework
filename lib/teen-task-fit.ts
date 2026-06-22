@@ -1,4 +1,5 @@
 import { CATEGORY_LABELS, WORK_FORMAT_LABELS, type TaskCategory } from "@/lib/constants";
+import { haversineKm } from "@/lib/haversine";
 import { formatTaskAgeRange, taskAcceptsTeenAge, taskHasDefinedAgeRange } from "@/lib/task-age";
 import type { Task } from "@/types/task";
 import type { TeenProfile } from "@/types/user";
@@ -16,6 +17,10 @@ const INTEREST_TO_CATEGORY: Record<string, TaskCategory> = {
   creative: "creative",
   delivery: "delivery",
   promo: "promo",
+  smm: "smm",
+  digital: "smm",
+  data: "data",
+  warehouse: "warehouse",
 };
 
 /**
@@ -24,6 +29,20 @@ const INTEREST_TO_CATEGORY: Record<string, TaskCategory> = {
  */
 export function computeTaskFitReasons(task: Task, teen: TeenProfile, max = 3): TaskFitReason[] {
   const reasons: TaskFitReason[] = [];
+
+  if (
+    task.workFormat === "offline" &&
+    task.lat != null &&
+    task.lng != null &&
+    teen.homeLat != null &&
+    teen.homeLng != null
+  ) {
+    const dist = haversineKm(teen.homeLat, teen.homeLng, task.lat, task.lng);
+    if (dist <= (teen.searchRadiusKm ?? 5)) {
+      const distLabel = dist < 1 ? "менее 1 км" : `${Math.round(dist)} км`;
+      reasons.push({ id: "nearby", icon: "📍", text: `Рядом с тобой — ${distLabel}` });
+    }
+  }
 
   const fmt = teen.preferredTaskFormat;
   if (fmt && fmt !== "any" && fmt === task.workFormat) {

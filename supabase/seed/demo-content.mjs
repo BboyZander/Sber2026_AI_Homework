@@ -27,25 +27,25 @@ const THEMES = {
     done: "Все заказы за смену выданы корректно, зона выдачи убрана.", xp: 80,
   },
   pvz_receive: {
-    title: "Приёмка и сортировка в ПВЗ", category: "other", work_format: "offline",
+    title: "Приёмка и сортировка в ПВЗ", category: "warehouse", work_format: "offline",
     physical: "light", outdoor: false, hours: 4, ages: [16, 17],
     what: "Принять поставку, разложить заказы по ячейкам, отметить приёмку в системе.",
     done: "Вся поставка разложена по ячейкам, расхождения зафиксированы.", xp: 75,
   },
   warehouse_pick: {
-    title: "Сборка заказов на складе", category: "other", work_format: "offline",
+    title: "Сборка заказов на складе", category: "warehouse", work_format: "offline",
     physical: "light", outdoor: false, hours: 4, ages: [16, 17],
     what: "Собирать заказы по списку, упаковывать, передавать на выдачу/доставку.",
     done: "Заказы из задания собраны и упакованы без ошибок.", xp: 78,
   },
   shelf_stock: {
-    title: "Выкладка товара в магазине", category: "other", work_format: "offline",
+    title: "Выкладка товара в магазине", category: "warehouse", work_format: "offline",
     physical: "light", outdoor: false, hours: 4, ages: [16, 17],
     what: "Выложить товар на полки по планограмме, проверить ценники и сроки.",
     done: "Полки заполнены по планограмме, просрочка убрана.", xp: 70,
   },
   packing: {
-    title: "Фасовка продуктов", category: "other", work_format: "offline",
+    title: "Фасовка продуктов", category: "warehouse", work_format: "offline",
     physical: "light", outdoor: false, hours: 4, ages: [16, 17],
     what: "Фасовать и взвешивать продукты, клеить этикетки, готовить к выкладке.",
     done: "Норма фасовки за смену выполнена, упаковка аккуратная.", xp: 68,
@@ -81,16 +81,22 @@ const THEMES = {
     done: "План активаций выполнен, промокоды розданы.", xp: 58,
   },
   smm_online: {
-    title: "Помощь с контентом для соцсетей", category: "creative", work_format: "online",
+    title: "Помощь с контентом для соцсетей", category: "smm", work_format: "online",
     physical: "none", outdoor: false, hours: 2, ages: [14, 17],
     what: "Подобрать референсы, собрать пост/сторис по брифу, оформить по гайдлайну.",
     done: "Контент по брифу сдан и принят куратором.", xp: 65,
   },
   data_entry: {
-    title: "Внесение данных в таблицы", category: "other", work_format: "online",
+    title: "Внесение данных в таблицы", category: "data", work_format: "online",
     physical: "none", outdoor: false, hours: 3, ages: [14, 17],
     what: "Переносить данные в таблицы по инструкции, проверять на ошибки.",
     done: "Все строки задания внесены и выверены.", xp: 52,
+  },
+  home_organize: {
+    title: "Разбор и организация пространства", category: "household", work_format: "offline",
+    physical: "light", outdoor: false, hours: 3, ages: [14, 17],
+    what: "Разобрать вещи по категориям, оформить хранение по инструкции заказчика.",
+    done: "Вещи разобраны и расставлены по системе, владелец принял работу.", xp: 60,
   },
 };
 
@@ -109,9 +115,9 @@ const PLAN = {
   "x5@trajectory.demo": ["pvz_issue", "pvz_receive", "shelf_stock", "promo_tasting", "survey", "promo_flyers"],
   "ozon@trajectory.demo": ["pvz_issue", "pvz_receive", "warehouse_pick", "data_entry", "survey", "packing"],
   "wildberries@trajectory.demo": ["pvz_issue", "pvz_receive", "shelf_stock", "packing", "survey", "data_entry"],
-  "yandex@trajectory.demo": ["survey", "ambassador", "event_help", "promo_flyers", "smm_online", "data_entry"],
+  "yandex@trajectory.demo": ["home_organize", "ambassador", "event_help", "promo_flyers", "smm_online", "data_entry"],
   "magnit@trajectory.demo": ["shelf_stock", "promo_tasting", "survey", "promo_flyers", "packing", "pvz_issue"],
-  "vkusvill@trajectory.demo": ["packing", "shelf_stock", "promo_tasting", "survey", "event_help", "smm_online"],
+  "vkusvill@trajectory.demo": ["packing", "home_organize", "promo_tasting", "survey", "event_help", "smm_online"],
   "samokat@trajectory.demo": ["warehouse_pick", "pvz_receive", "packing", "data_entry", "survey", "shelf_stock"],
   "dodo@trajectory.demo": ["promo_flyers", "ambassador", "event_help", "survey", "smm_online", "promo_tasting"],
 };

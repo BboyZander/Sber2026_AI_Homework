@@ -70,6 +70,10 @@ export const TASK_CATEGORIES = [
   "events",
   "promo",
   "creative",
+  "smm",
+  "data",
+  "warehouse",
+  "household",
   "other",
 ] as const;
 export type TaskCategory = (typeof TASK_CATEGORIES)[number];
@@ -79,6 +83,10 @@ export const CATEGORY_LABELS: Record<TaskCategory, string> = {
   events: "Мероприятия",
   promo: "Промо",
   creative: "Творчество",
+  smm: "SMM и контент",
+  data: "Работа с данными",
+  warehouse: "Склад и ПВЗ",
+  household: "Бытовые задачи",
   other: "Другое",
 };
 
