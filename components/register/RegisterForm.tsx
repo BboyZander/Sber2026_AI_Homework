@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -14,7 +13,6 @@ const ROLES: { value: Role; label: string }[] = [
 ];
 
 export function RegisterForm() {
-  const router = useRouter();
   const [role, setRole] = useState<Role>("teen");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -46,7 +44,9 @@ export function RegisterForm() {
 
     if (data.session) {
       // Подтверждение e-mail выключено — сессия уже есть, создаём профиль и входим.
-      router.push("/auth/callback");
+      // window.location.href нужен для полного GET-запроса: router.push не следует
+      // серверным редиректам Route Handler (callback → /teen/onboarding).
+      window.location.href = "/auth/callback";
     } else {
       // Подтверждение e-mail включено — ждём перехода по ссылке из письма.
       setCheckEmail(true);

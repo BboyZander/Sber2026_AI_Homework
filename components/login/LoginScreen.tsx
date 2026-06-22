@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { LOGIN_COPY } from "@/lib/ui-copy";
@@ -25,7 +24,6 @@ const QUICK_ACCOUNTS = [
 ] as const;
 
 export function LoginScreen() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -49,10 +47,12 @@ export function LoginScreen() {
         return;
       }
 
-      // /auth/callback гарантирует профиль и уводит в кабинет по роли.
-      router.push("/auth/callback");
+      // /auth/callback гарантирует профиль и уводит в кабинет по роли (включая онбординг).
+      // window.location.href нужен для полного GET-запроса: router.push не следует
+      // серверным редиректам Route Handler.
+      window.location.href = "/auth/callback";
     },
-    [router],
+    [],
   );
 
   async function onSubmit(e: React.FormEvent) {
