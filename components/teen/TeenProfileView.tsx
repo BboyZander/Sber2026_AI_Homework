@@ -103,6 +103,8 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
   const [dirtyBaseline, setDirtyBaseline] = useState<string | null>(null);
   const [savedOk, setSavedOk] = useState(false);
   const [openAchievementId, setOpenAchievementId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const interestCodes = useMemo(() => getTeenInterestCodes(), []);
 
@@ -232,6 +234,19 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
       };
     });
   }, []);
+
+  const deleteAccount = useCallback(async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/delete-account", { method: "DELETE" });
+      if (!res.ok) throw new Error("failed");
+      window.location.href = "/";
+    } catch {
+      setDeleting(false);
+      setDeleteConfirm(false);
+    }
+  }, [deleting]);
 
   if (!mounted) {
     return (
@@ -507,18 +522,54 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
                   </label>
                 </div>
               </div>
-              <div className="sticky bottom-0 z-[1] flex flex-wrap items-center justify-end gap-2 border-t border-edge/80 bg-canvas/95 px-4 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:static sm:z-0 sm:border-0 sm:bg-transparent sm:px-5 sm:pb-5 sm:pt-0 sm:backdrop-blur-none">
-                <button type="button" className="ui-btn-ghost border-0 px-4 py-2.5 sm:py-2" onClick={cancelEdit}>
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  className="ui-btn-primary border-0 px-4 py-2.5 disabled:pointer-events-none disabled:opacity-45 sm:py-2"
-                  onClick={saveProfile}
-                  disabled={!isDirty}
-                >
-                  Сохранить
-                </button>
+              <div className="sticky bottom-0 z-[1] flex flex-wrap items-center justify-between gap-2 border-t border-edge/80 bg-canvas/95 px-4 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:static sm:z-0 sm:border-0 sm:bg-transparent sm:px-5 sm:pb-5 sm:pt-0 sm:backdrop-blur-none">
+                {/* Удаление — слева, двухшаговое подтверждение */}
+                <div className="flex items-center gap-2">
+                  {!deleteConfirm ? (
+                    <button
+                      type="button"
+                      onClick={() => setDeleteConfirm(true)}
+                      disabled={deleting}
+                      className="px-3 py-2.5 text-xs font-medium text-sub/60 transition hover:text-rose-400 disabled:opacity-40 sm:py-2"
+                    >
+                      Удалить аккаунт
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-rose-400">Удалить навсегда?</span>
+                      <button
+                        type="button"
+                        onClick={() => void deleteAccount()}
+                        disabled={deleting}
+                        className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-400 transition hover:bg-rose-500/20 disabled:opacity-50"
+                      >
+                        {deleting ? "Удаляем…" : "Да, удалить"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirm(false)}
+                        disabled={deleting}
+                        className="text-xs text-sub transition hover:text-ink disabled:opacity-40"
+                      >
+                        Отмена
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {/* Основные действия — справа */}
+                <div className="flex items-center gap-2">
+                  <button type="button" className="ui-btn-ghost border-0 px-4 py-2.5 sm:py-2" onClick={cancelEdit}>
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    className="ui-btn-primary border-0 px-4 py-2.5 disabled:pointer-events-none disabled:opacity-45 sm:py-2"
+                    onClick={saveProfile}
+                    disabled={!isDirty}
+                  >
+                    Сохранить
+                  </button>
+                </div>
               </div>
             </motion.div>
           ) : null}
