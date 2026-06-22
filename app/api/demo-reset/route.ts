@@ -24,7 +24,7 @@ export async function POST() {
   );
 
   try {
-    const result = await resetDemoContent(service);
+    const result = await resetDemoContent(service, user.id);
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : "reset failed";

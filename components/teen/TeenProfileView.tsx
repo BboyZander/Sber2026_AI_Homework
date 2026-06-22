@@ -6,16 +6,19 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Application } from "@/types/application";
 import type { TeenPreferredTaskFormat, TeenProfile } from "@/types/user";
-import { AchievementCard } from "@/components/teen/AchievementCard";
-import { XPProgress } from "@/components/teen/XPProgress";
+import { TierProgress } from "@/components/teen/XPProgress";
+import { TeenSkillsSection } from "@/components/teen/TeenSkillsSection";
+import { TeenAchievementsSection } from "@/components/teen/TeenAchievementsSection";
 import { SectionTitle } from "@/components/shared/SectionTitle";
 import { TeenFinanceTab } from "@/components/teen/TeenFinanceTab";
 import { TeenFavoritesTab } from "@/components/teen/TeenFavoritesTab";
 import { StatTile } from "@/components/teen/StatTile";
-import { demoAchievements } from "@/data/demo-achievements";
 import { toDashboardDisplayStats } from "@/data/teen-dashboard";
-import { formatRub, formatXp } from "@/lib/helpers";
+import { formatRub } from "@/lib/helpers";
 import { computeTeenActivityStats } from "@/lib/teen-activity-stats";
+import { computeTierProgress } from "@/lib/teen-tier";
+import { computeTeenSkills } from "@/lib/teen-skills";
+import { computeAchievements } from "@/lib/teen-achievements";
 import { pushTeenToast } from "@/lib/teen-flow";
 import {
   TEEN_APPLICATIONS_EVENT,
@@ -104,9 +107,10 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; age?: string }>({});
   const [dirtyBaseline, setDirtyBaseline] = useState<string | null>(null);
   const [savedOk, setSavedOk] = useState(false);
-  const [openAchievementId, setOpenAchievementId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
   const [addrSuggestions, setAddrSuggestions] = useState<AddressSuggestion[]>([]);
   const [addrSuggestLoading, setAddrSuggestLoading] = useState(false);
   const [addrSuggestUnavailable, setAddrSuggestUnavailable] = useState(false);
@@ -241,6 +245,34 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
     setDraft(null);
     setFieldErrors({});
     setDirtyBaseline(null);
+    setAvatarError(null);
+  }, []);
+
+  const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setAvatarUploading(true);
+    setAvatarError(null);
+    try {
+      const fd = new FormData();
+      fd.append("avatar", file);
+      const res = await fetch("/api/upload-avatar", { method: "POST", body: fd });
+      const json = (await res.json()) as { avatarUrl?: string; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "upload-failed");
+      setTeen((prev) => ({ ...prev, avatarUrl: json.avatarUrl }));
+    } catch (err) {
+      const msg = (err as Error).message;
+      setAvatarError(
+        msg === "file too large"
+          ? "Файл слишком большой (макс. 5 МБ)."
+          : msg === "invalid file type"
+            ? "Только JPEG, PNG, WebP или GIF."
+            : "Ошибка загрузки. Попробуй ещё раз.",
+      );
+    } finally {
+      setAvatarUploading(false);
+    }
   }, []);
 
   const saveProfile = useCallback(() => {
@@ -333,8 +365,9 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
 
   const activity = computeTeenActivityStats(apps, (id) => tasksById[id]);
   const dash = toDashboardDisplayStats(teen, activity);
-  const currentXp = dash.xp;
-  const nextLevelXp = dash.nextLevelXp;
+  const tierData = computeTierProgress(activity.completedTasksCount);
+  const skills = computeTeenSkills(apps, tasksById);
+  const achievements = computeAchievements(apps, teen, tasksById);
   const hint = buildTeenProfileHint(apps);
   const interests = teen.interests?.length ? teen.interests : [];
 
@@ -358,10 +391,47 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
         />
         <div className="relative flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
-            <div className="flex h-[4.5rem] w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-2xl bg-panel-muted/60 ring-2 ring-accent/45 backdrop-blur-sm sm:h-28 sm:w-28">
-              <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-accent-bright/80">Уровень</span>
-              <span className="text-3xl font-bold tabular-nums text-ink sm:text-4xl">{teen.level}</span>
-            </div>
+            <label
+              className={`relative h-[4.5rem] w-[4.5rem] shrink-0 sm:h-28 sm:w-28 ${editing ? "cursor-pointer" : "cursor-default"}`}
+              title={editing ? "Нажми, чтобы загрузить фото" : undefined}
+            >
+              {editing && (
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={avatarUploading}
+                  onChange={handleAvatarUpload}
+                />
+              )}
+              {teen.avatarUrl ? (
+                <img
+                  src={teen.avatarUrl}
+                  alt={teen.name}
+                  className={`h-full w-full rounded-full object-cover ring-2 ring-accent/45 backdrop-blur-sm transition ${editing ? "brightness-90 hover:brightness-75" : ""}`}
+                />
+              ) : (
+                <div className={`flex h-full w-full items-center justify-center rounded-full bg-panel-muted/60 ring-2 ring-accent/45 backdrop-blur-sm text-2xl font-bold text-accent-bright sm:text-4xl transition ${editing ? "hover:bg-panel-muted/80" : ""}`}>
+                  {avatarUploading ? "…" : teen.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              {editing && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
+                  <span className="text-white text-xs font-semibold drop-shadow">
+                    {avatarUploading ? "Загружаем…" : "📷"}
+                  </span>
+                </div>
+              )}
+              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-full border border-edge bg-panel/95 px-2 py-0.5 text-xs font-semibold shadow-sm">
+                <span>{tierData.current.icon}</span>
+                <span className="hidden text-ink sm:inline">{tierData.current.label}</span>
+              </div>
+              {avatarError && editing ? (
+                <p className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs text-rose-400">
+                  {avatarError}
+                </p>
+              ) : null}
+            </label>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="m-0 text-xs font-semibold uppercase tracking-wider text-accent-bright/90">Твой профиль</p>
@@ -430,9 +500,8 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
             </div>
           </div>
           <div className="shrink-0 rounded-xl border border-edge bg-canvas/40 px-4 py-3 text-right sm:text-left">
-            <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-sub">Опыт</p>
-            <p className="mt-1 m-0 text-xl font-bold tabular-nums text-ink">{formatXp(currentXp)} XP</p>
-            <p className="mt-0.5 m-0 text-xs text-sub">до уровня {teen.level + 1} — {formatXp(nextLevelXp)} XP</p>
+            <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-sub">Завершено задач</p>
+            <p className="mt-1 m-0 text-xl font-bold tabular-nums text-ink">{activity.completedTasksCount}</p>
             <p className="mt-2 m-0 text-xs font-semibold uppercase tracking-wider text-sub">Кошелёк</p>
             <p className="mt-0.5 m-0 text-sm font-semibold text-accent-bright">{formatRub(dash.earnedDemoRub)}</p>
           </div>
@@ -754,7 +823,7 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.06, ease: sectionEase }}
               >
-                <XPProgress currentXp={currentXp} nextLevelXp={nextLevelXp} />
+                <TierProgress completedCount={activity.completedTasksCount} />
               </motion.div>
 
               <motion.section
@@ -771,10 +840,19 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
               </motion.section>
 
               <motion.section
-                className="ui-card border-accent/25 bg-gradient-to-br from-accent/[0.08] via-panel-muted/50 to-transparent"
                 initial={reduceMotion ? false : { opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.14, ease: sectionEase }}
+              >
+                <SectionTitle title="Навыки" />
+                <TeenSkillsSection skills={skills} />
+              </motion.section>
+
+              <motion.section
+                className="ui-card border-accent/25 bg-gradient-to-br from-accent/[0.08] via-panel-muted/50 to-transparent"
+                initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.18, ease: sectionEase }}
               >
                 <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-accent-bright">{hint.eyebrow}</p>
                 <h2 className="mt-2 m-0 text-lg font-semibold text-ink">{hint.title}</h2>
@@ -792,23 +870,10 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
               <motion.section
                 initial={reduceMotion ? false : { opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.18, ease: sectionEase }}
+                transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.22, ease: sectionEase }}
               >
                 <SectionTitle title="Достижения" />
-                <p className="-mt-1 mb-4 text-sm text-sub">
-                  Награды за шаги в сервисе: копи XP и открывай уровни.
-                </p>
-                <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {demoAchievements.map((a, i) => (
-                    <AchievementCard
-                      key={a.id}
-                      achievement={a}
-                      index={i}
-                      mobileOpen={openAchievementId === a.id}
-                      onMobileToggle={() => setOpenAchievementId((current) => (current === a.id ? null : a.id))}
-                    />
-                  ))}
-                </div>
+                <TeenAchievementsSection achievements={achievements} />
               </motion.section>
             </>
           ) : activeTab === "finance" ? (

@@ -16,7 +16,7 @@ async function fetchProfile(): Promise<TeenProfile | null> {
 
   const { data: base } = await supabase
     .from("profiles")
-    .select("name, email, city, role")
+    .select("name, email, city, role, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
   if (!base || base.role !== "teen") return null;
@@ -33,6 +33,7 @@ async function fetchProfile(): Promise<TeenProfile | null> {
     email: (base.email as string) ?? "",
     name: base.name as string,
     role: "teen",
+    avatarUrl: (base.avatar_url as string) ?? undefined,
     city: (base.city as string) ?? undefined,
     age: (t.age as number) ?? undefined,
     xp: (t.xp as number) ?? 0,

@@ -1,25 +1,29 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { formatXp } from "@/lib/helpers";
+import { computeTierProgress, formatTasksToNext } from "@/lib/teen-tier";
 
-export function XPProgress({
-  currentXp,
-  nextLevelXp,
-}: {
-  currentXp: number;
-  nextLevelXp: number;
-}) {
+export function TierProgress({ completedCount }: { completedCount: number }) {
   const reduceMotion = useReducedMotion();
-  const pct = Math.min(100, Math.round((currentXp / nextLevelXp) * 100));
+  const tier = computeTierProgress(completedCount);
+  const pct = tier.progressPct;
 
   return (
     <div className="ui-card">
-      <div className="mb-2 flex flex-wrap items-end justify-between gap-2 text-xs sm:text-sm">
-        <span className="font-medium text-sub">До следующего уровня</span>
-        <span className="font-mono text-ink">
-          {formatXp(currentXp)} / {formatXp(nextLevelXp)} XP
-        </span>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl leading-none">{tier.current.icon}</span>
+          <div>
+            <p className="m-0 text-base font-bold text-ink">{tier.current.label}</p>
+            <p className="m-0 text-xs text-sub">{tier.current.description}</p>
+          </div>
+        </div>
+        {tier.next ? (
+          <div className="shrink-0 text-right">
+            <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-sub">До «{tier.next.label}»</p>
+            <p className="m-0 text-sm font-semibold text-ink">{formatTasksToNext(tier.tasksToNext)}</p>
+          </div>
+        ) : null}
       </div>
       <div className="h-2.5 overflow-hidden rounded-full bg-raised ring-1 ring-white/5">
         <motion.div
@@ -34,8 +38,15 @@ export function XPProgress({
         />
       </div>
       <p className="m-0 mt-2 text-xs leading-relaxed text-sub">
-        XP — опыт за выполненные задачи. Чем выше уровень, тем сложнее и денежнее доступные подработки.
+        {tier.next
+          ? "Завершай задачи — они формируют твой опыт и открывают доступ к более серьёзным предложениям."
+          : "Ты достиг максимального статуса!"}
       </p>
     </div>
   );
+}
+
+/** @deprecated используй TierProgress */
+export function XPProgress(_: { currentXp: number; nextLevelXp: number }) {
+  return null;
 }

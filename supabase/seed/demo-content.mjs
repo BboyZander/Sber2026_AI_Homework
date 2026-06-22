@@ -254,8 +254,13 @@ export function pickApplicationsAndFavorites(teenId, tasks) {
  * Сбросить демо-контент к зафиксированному состоянию.
  * Удаляет задачи сид-работодателей (каскадом — их отклики/избранное),
  * заново вставляет задачи и отклики/избранное подростка. Профили не трогает.
+ *
+ * @param {string} [currentTeenId] - ID залогиненного подростка.
+ *   Если передан, отклики создаются для него, а не для захардкоженного TEEN_EMAIL.
+ *   Это нужно, чтобы сброс работал для любого тестового аккаунта, а не только
+ *   для seed-аккаунта teen@trajectory.demo.
  */
-export async function resetDemoContent(supabase) {
+export async function resetDemoContent(supabase, currentTeenId) {
   const { data: emps, error: empErr } = await supabase
     .from("profiles")
     .select("id, email, name")
@@ -275,17 +280,22 @@ export async function resetDemoContent(supabase) {
     .select("id, status");
   if (insErr) throw insErr;
 
-  const { data: teen, error: teenErr } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("email", TEEN_EMAIL)
-    .maybeSingle();
-  if (teenErr) throw teenErr;
+  // Приоритет: ID текущего пользователя → seed-аккаунт по email.
+  let teenId = currentTeenId ?? null;
+  if (!teenId) {
+    const { data: seedTeen, error: teenErr } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", TEEN_EMAIL)
+      .maybeSingle();
+    if (teenErr) throw teenErr;
+    teenId = seedTeen?.id ?? null;
+  }
 
   let applicationsCount = 0;
   let favoritesCount = 0;
-  if (teen) {
-    const { applications, favorites } = pickApplicationsAndFavorites(teen.id, inserted);
+  if (teenId) {
+    const { applications, favorites } = pickApplicationsAndFavorites(teenId, inserted);
     // Отклики/избранное подростка уже удалены каскадом вместе с задачами — вставляем заново.
     const { error: aErr } = await supabase.from("applications").insert(applications);
     if (aErr) throw aErr;

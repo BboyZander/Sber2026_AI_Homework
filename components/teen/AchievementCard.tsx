@@ -50,8 +50,7 @@ export function AchievementCard({
           <div className="border-t border-edge px-3 pb-3 pt-2">
             <p className="m-0 text-xs leading-relaxed text-sub">{achievement.description}</p>
             <p className="m-0 mt-2 text-xs font-medium text-accent/90">
-              +{achievement.xpReward} XP
-              {achievement.unlockedAt ? ` · ${formatDate(achievement.unlockedAt)}` : " · скоро"}
+              {achievement.unlockedAt ? `Открыто ${formatDate(achievement.unlockedAt)}` : "Скоро"}
             </p>
           </div>
         ) : null}
@@ -84,8 +83,7 @@ export function AchievementCard({
         <h3 className="relative m-0 font-semibold text-ink">{achievement.title}</h3>
         <p className="relative my-2 mb-0 text-sm leading-relaxed text-sub">{achievement.description}</p>
         <p className="relative mt-3 text-xs font-medium text-accent/90">
-          +{achievement.xpReward} XP
-          {achievement.unlockedAt ? ` · ${formatDate(achievement.unlockedAt)}` : " · скоро"}
+          {achievement.unlockedAt ? `Открыто ${formatDate(achievement.unlockedAt)}` : "Скоро"}
         </p>
       </motion.article>
     </>
