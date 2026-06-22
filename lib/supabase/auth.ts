@@ -39,6 +39,28 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 }
 
 /**
+ * Прошёл ли текущий подросток онбординг при первом входе (F0.6).
+ * Возвращает null, если сессии/профиля подростка нет.
+ */
+export async function getCurrentTeenOnboarded(): Promise<boolean | null> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from("teen_profiles")
+    .select("onboarded")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!data) return null;
+
+  return Boolean(data.onboarded);
+}
+
+/**
  * Гарантирует наличие строк профиля для текущего пользователя.
  * Идемпотентно: если профиль уже есть — ничего не создаёт.
  * Роль/имя берутся из user_metadata, заданных при signUp.

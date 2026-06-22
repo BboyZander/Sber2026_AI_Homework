@@ -29,12 +29,12 @@ import { rowToTask, type TaskRow } from "@/lib/supabase/mappers";
 import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-sync";
 import { buildTeenProfileHint } from "@/lib/teen-profile-hint";
 import { teenInterestLabel } from "@/lib/teen-interest-labels";
+import { TEEN_MOTIVATION_LABELS, teenMotivationLabel } from "@/lib/teen-motivation-labels";
 import {
   TEEN_PREFERRED_FORMAT_LABELS,
   TEEN_PREFERRED_FORMATS,
   getTeenInterestCodes,
   profilePatchFromTeen,
-  type TeenProfileEditablePatch,
   validateTeenProfilePatch,
 } from "@/lib/teen-profile";
 import { TEEN_TOASTS } from "@/lib/ui-copy";
@@ -45,6 +45,9 @@ type ProfileFormDraft = {
   city: string;
   interests: string[];
   preferredTaskFormat: TeenPreferredTaskFormat;
+  motivation: string[];
+  weekendAvailability: boolean;
+  goalTitle: string;
 };
 
 function serializeTeenForm(d: ProfileFormDraft): string {
@@ -54,16 +57,9 @@ function serializeTeenForm(d: ProfileFormDraft): string {
     city: d.city.trim(),
     interests: [...d.interests].sort(),
     fmt: d.preferredTaskFormat,
-  });
-}
-
-function serializeTeenBaseline(p: TeenProfileEditablePatch): string {
-  return JSON.stringify({
-    name: p.name.trim(),
-    age: String(p.age),
-    city: p.city.trim(),
-    interests: [...p.interests].sort(),
-    fmt: p.preferredTaskFormat,
+    motivation: [...d.motivation].sort(),
+    weekend: d.weekendAvailability,
+    goalTitle: d.goalTitle.trim(),
   });
 }
 
@@ -161,14 +157,18 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
 
   const beginEdit = useCallback(() => {
     const t = profilePatchFromTeen(teen);
-    setDraft({
+    const next: ProfileFormDraft = {
       name: t.name,
       ageInput: String(t.age),
       city: t.city,
       interests: [...t.interests],
       preferredTaskFormat: t.preferredTaskFormat,
-    });
-    setDirtyBaseline(serializeTeenBaseline(t));
+      motivation: [...(teen.motivation ?? [])],
+      weekendAvailability: teen.weekendAvailability ?? false,
+      goalTitle: teen.earningGoal?.title ?? "",
+    };
+    setDraft(next);
+    setDirtyBaseline(serializeTeenForm(next));
     setFieldErrors({});
     setSavedOk(false);
     setEditing(true);
@@ -194,14 +194,22 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
       setFieldErrors({ name: v.nameError, age: v.ageError });
       return;
     }
-    void updateTeenProfileFields(v.patch);
+    void updateTeenProfileFields({
+      ...v.patch,
+      motivation: draft.motivation,
+      weekendAvailability: draft.weekendAvailability,
+      earningGoal: {
+        title: draft.goalTitle.trim() || undefined,
+        amount: teen.earningGoal?.amount,
+      },
+    });
     setEditing(false);
     setDraft(null);
     setFieldErrors({});
     setDirtyBaseline(null);
     setSavedOk(true);
     pushTeenToast(TEEN_TOASTS.profileSaved);
-  }, [draft]);
+  }, [draft, teen]);
 
   const toggleInterest = useCallback((code: string) => {
     setDraft((d) => {
@@ -210,6 +218,17 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
       return {
         ...d,
         interests: has ? d.interests.filter((x) => x !== code) : [...d.interests, code],
+      };
+    });
+  }, []);
+
+  const toggleMotivation = useCallback((code: string) => {
+    setDraft((d) => {
+      if (!d) return d;
+      const has = d.motivation.includes(code);
+      return {
+        ...d,
+        motivation: has ? d.motivation.filter((x) => x !== code) : [...d.motivation, code],
       };
     });
   }, []);
@@ -289,7 +308,28 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
               </p>
               <p className="mt-1.5 m-0 text-xs text-sub">
                 Формат задач: {TEEN_PREFERRED_FORMAT_LABELS[teen.preferredTaskFormat ?? "any"]}
+                {teen.weekendAvailability != null
+                  ? ` · ${teen.weekendAvailability ? "готов(а) работать на выходных" : "только будни"}`
+                  : ""}
               </p>
+              {teen.earningGoal?.title ? (
+                <p className="mt-1.5 m-0 text-xs text-sub">
+                  Цель: {teen.earningGoal.title}
+                  {teen.earningGoal.amount ? ` · ${formatRub(teen.earningGoal.amount)}` : ""}
+                </p>
+              ) : null}
+              {teen.motivation && teen.motivation.length > 0 ? (
+                <ul className="mt-3 flex list-none flex-wrap gap-2 p-0">
+                  {teen.motivation.map((code) => (
+                    <li
+                      key={code}
+                      className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent-bright"
+                    >
+                      {teenMotivationLabel(code)}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               {interests.length > 0 ? (
                 <ul className="mt-3 flex list-none flex-wrap gap-2 p-0">
                   {interests.map((code) => (
@@ -407,6 +447,64 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
                       })}
                     </div>
                   </div>
+                  <div className="sm:col-span-2">
+                    <span className="mb-2 block text-xs font-medium text-sub">Зачем зарабатываю</span>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(TEEN_MOTIVATION_LABELS).map(([code, label]) => {
+                        const on = draft.motivation.includes(code);
+                        return (
+                          <button
+                            key={code}
+                            type="button"
+                            onClick={() => toggleMotivation(code)}
+                            className={`${chipBtnClass} ${
+                              on
+                                ? "border-accent/55 bg-accent/18 text-ink ring-1 ring-accent/25"
+                                : "border-edge bg-panel-muted/50 text-sub hover:border-edge-strong hover:text-ink"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="mb-2 block text-xs font-medium text-sub">Работа на выходных</span>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { value: true, label: "Да, удобно" },
+                        { value: false, label: "Только будни" },
+                      ].map((opt) => {
+                        const on = draft.weekendAvailability === opt.value;
+                        return (
+                          <button
+                            key={String(opt.value)}
+                            type="button"
+                            onClick={() =>
+                              setDraft((d) => (d ? { ...d, weekendAvailability: opt.value } : d))
+                            }
+                            className={`${chipBtnClass} ${
+                              on
+                                ? "border-accent/55 bg-accent/18 text-ink ring-1 ring-accent/25"
+                                : "border-edge bg-panel-muted/50 text-sub hover:border-edge-strong hover:text-ink"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <label className="block sm:col-span-2">
+                    <span className="mb-1 block text-xs font-medium text-sub">На что копишь (необязательно)</span>
+                    <input
+                      className={inputClass}
+                      value={draft.goalTitle}
+                      onChange={(e) => setDraft((d) => (d ? { ...d, goalTitle: e.target.value } : d))}
+                      placeholder="Например, новый телефон"
+                    />
+                  </label>
                 </div>
               </div>
               <div className="sticky bottom-0 z-[1] flex flex-wrap items-center justify-end gap-2 border-t border-edge/80 bg-canvas/95 px-4 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:static sm:z-0 sm:border-0 sm:bg-transparent sm:px-5 sm:pb-5 sm:pt-0 sm:backdrop-blur-none">

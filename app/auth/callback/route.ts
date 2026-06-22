@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { ensureProfileForCurrentUser } from "@/lib/supabase/auth";
+import { ensureProfileForCurrentUser, getCurrentTeenOnboarded } from "@/lib/supabase/auth";
 import { roleHomePath } from "@/lib/auth";
 
 /**
@@ -21,6 +21,11 @@ export async function GET(request: Request) {
   const role = await ensureProfileForCurrentUser();
   if (!role) {
     return NextResponse.redirect(`${origin}/login`);
+  }
+
+  // F0.6: подростка при первом входе ведём в онбординг, а не в кабинет.
+  if (role === "teen" && (await getCurrentTeenOnboarded()) === false) {
+    return NextResponse.redirect(`${origin}/teen/onboarding`);
   }
 
   return NextResponse.redirect(`${origin}${roleHomePath(role)}`);

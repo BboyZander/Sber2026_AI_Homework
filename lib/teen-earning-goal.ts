@@ -1,49 +1,40 @@
 /**
- * Личная цель заработка подростка (демо): хранится в localStorage по teenId.
- * Используется блоком «Заработано» на Главной для круговой диаграммы прогресса.
+ * Личная цель заработка подростка: хранится в Supabase (teen_profiles.earning_goal_amount).
+ * Используется блоком «Заработано» на Главной для круговой диаграммы прогресса и онбордингом (F0.6).
+ * Раньше жила в localStorage — перенесена в БД при F0.6 (остаток F16.2).
  */
+import { createClient } from "@/lib/supabase/client";
 
-const GOAL_KEY = "trajectory-teen-earning-goal-v1";
-
-export const TEEN_EARNING_GOAL_EVENT = "trajectory-teen-earning-goal";
 export const DEFAULT_TEEN_EARNING_GOAL_RUB = 5000;
 
-type GoalsMap = Record<string, number>;
+/** Текущая цель заработка в рублях для залогиненного подростка (фолбэк — дефолт). */
+export async function getTeenEarningGoal(): Promise<number> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return DEFAULT_TEEN_EARNING_GOAL_RUB;
 
-function readMap(): GoalsMap {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(GOAL_KEY);
-    if (!raw) return {};
-    const data = JSON.parse(raw) as unknown;
-    if (!data || typeof data !== "object" || Array.isArray(data)) return {};
-    const out: GoalsMap = {};
-    for (const [teenId, value] of Object.entries(data as Record<string, unknown>)) {
-      if (typeof value === "number" && Number.isFinite(value) && value > 0) out[teenId] = value;
-    }
-    return out;
-  } catch {
-    return {};
-  }
+  const { data } = await supabase
+    .from("teen_profiles")
+    .select("earning_goal_amount")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const v = data?.earning_goal_amount;
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : DEFAULT_TEEN_EARNING_GOAL_RUB;
 }
 
-function writeMap(map: GoalsMap) {
-  window.localStorage.setItem(GOAL_KEY, JSON.stringify(map));
-}
-
-/** Текущая цель подростка в рублях (демо: «сколько хочу заработать»). */
-export function getTeenEarningGoal(teenId: string): number {
-  const v = readMap()[teenId];
-  return typeof v === "number" ? v : DEFAULT_TEEN_EARNING_GOAL_RUB;
-}
-
-/** Сохранить новую цель и оповестить подписчиков (диаграмма на Главной). */
-export function setTeenEarningGoal(teenId: string, goalRub: number): void {
-  if (typeof window === "undefined") return;
+/** Сохранить новую цель заработка в профиль подростка. */
+export async function setTeenEarningGoal(goalRub: number): Promise<void> {
   const safe = Math.round(goalRub);
   if (!Number.isFinite(safe) || safe <= 0) return;
-  const map = readMap();
-  map[teenId] = safe;
-  writeMap(map);
-  window.dispatchEvent(new CustomEvent(TEEN_EARNING_GOAL_EVENT, { detail: { teenId } }));
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase.from("teen_profiles").update({ earning_goal_amount: safe }).eq("id", user.id);
 }

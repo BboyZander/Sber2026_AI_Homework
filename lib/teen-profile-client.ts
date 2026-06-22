@@ -40,6 +40,16 @@ async function fetchProfile(): Promise<TeenProfile | null> {
     interests: (t.interests as string[]) ?? undefined,
     preferredTaskFormat: (t.preferred_task_format as TeenPreferredTaskFormat) ?? undefined,
     completedTasksCount: (t.completed_tasks_count as number) ?? undefined,
+    onboarded: (t.onboarded as boolean) ?? false,
+    motivation: (t.motivation as string[]) ?? undefined,
+    weekendAvailability: (t.weekend_availability as boolean) ?? undefined,
+    earningGoal:
+      t.earning_goal_title != null || t.earning_goal_amount != null
+        ? {
+            title: (t.earning_goal_title as string) ?? undefined,
+            amount: (t.earning_goal_amount as number) ?? undefined,
+          }
+        : undefined,
   };
 }
 
@@ -71,6 +81,15 @@ export async function updateTeenProfileFields(patch: Partial<TeenProfile>): Prom
   if (patch.interests !== undefined) tpPatch.interests = patch.interests;
   if (patch.preferredTaskFormat !== undefined) {
     tpPatch.preferred_task_format = patch.preferredTaskFormat;
+  }
+  if (patch.onboarded !== undefined) tpPatch.onboarded = patch.onboarded;
+  if (patch.motivation !== undefined) tpPatch.motivation = patch.motivation;
+  if (patch.weekendAvailability !== undefined) {
+    tpPatch.weekend_availability = patch.weekendAvailability;
+  }
+  if (patch.earningGoal !== undefined) {
+    tpPatch.earning_goal_title = patch.earningGoal.title ?? null;
+    tpPatch.earning_goal_amount = patch.earningGoal.amount ?? null;
   }
 
   if (Object.keys(basePatch).length > 0) {

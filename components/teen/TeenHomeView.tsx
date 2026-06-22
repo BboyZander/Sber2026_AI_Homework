@@ -12,11 +12,7 @@ import {
   getApplicationsCached,
   loadApplications,
 } from "@/lib/teen-applications-client";
-import {
-  TEEN_EARNING_GOAL_EVENT,
-  getTeenEarningGoal,
-  setTeenEarningGoal,
-} from "@/lib/teen-earning-goal";
+import { getTeenEarningGoal, setTeenEarningGoal } from "@/lib/teen-earning-goal";
 import { RecommendedTasks } from "@/components/teen/RecommendedTasks";
 import { TeenTasksCatalogView } from "@/components/teen/TeenTasksCatalogView";
 import type { TeenProfile } from "@/types/user";
@@ -69,7 +65,8 @@ export function TeenHomeView({ teen: initialTeen }: { teen: TeenProfile }) {
       } = await supabase.auth.getUser();
       if (!user || !alive) return;
       setTeenId(user.id);
-      setGoalRub(getTeenEarningGoal(user.id));
+      const goal = await getTeenEarningGoal();
+      if (alive) setGoalRub(goal);
 
       const { data: prof } = await supabase
         .from("profiles")
@@ -113,17 +110,11 @@ export function TeenHomeView({ teen: initialTeen }: { teen: TeenProfile }) {
       setEarnedRub(earned);
     }
 
-    function onGoal() {
-      if (teenId) setGoalRub(getTeenEarningGoal(teenId));
-    }
-
     void load();
     window.addEventListener(TEEN_APPLICATIONS_EVENT, load);
-    window.addEventListener(TEEN_EARNING_GOAL_EVENT, onGoal);
     return () => {
       alive = false;
       window.removeEventListener(TEEN_APPLICATIONS_EVENT, load);
-      window.removeEventListener(TEEN_EARNING_GOAL_EVENT, onGoal);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -137,7 +128,7 @@ export function TeenHomeView({ teen: initialTeen }: { teen: TeenProfile }) {
     e.preventDefault();
     const parsed = Number(goalDraft.replace(/\s/g, ""));
     if (Number.isFinite(parsed) && parsed > 0 && teenId) {
-      setTeenEarningGoal(teenId, parsed);
+      void setTeenEarningGoal(parsed);
       setGoalRub(parsed);
     }
     setEditingGoal(false);

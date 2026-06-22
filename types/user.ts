@@ -21,6 +21,14 @@ export interface TeenProfile extends User {
   preferredTaskFormat?: TeenPreferredTaskFormat;
   /** Демо: число завершённых задач для дашборда */
   completedTasksCount?: number;
+  /** F0.6: пройден ли онбординг при первом входе. */
+  onboarded?: boolean;
+  /** F0.6/E9: коды мотивации («зачем зарабатываю»), assistant-friendly. */
+  motivation?: string[];
+  /** F0.6/E9: готов работать на выходных. */
+  weekendAvailability?: boolean;
+  /** F0.6/E9: личная цель заработка (перенесено из localStorage в Supabase). */
+  earningGoal?: { title?: string; amount?: number };
 }
 
 /** Тип заказчика в кабинете работодателя (демо). */
