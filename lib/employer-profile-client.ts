@@ -45,6 +45,8 @@ async function fetchProfile(): Promise<EmployerProfile | null> {
     taskCategories: (e.task_categories as TaskCategory[]) ?? undefined,
     cabinetDescription: (e.cabinet_description as string) ?? undefined,
     cabinetTags: (e.cabinet_tags as string[]) ?? undefined,
+    rating: (e.rating as number) ?? undefined,
+    reviewsCount: (e.reviews_count as number) ?? undefined,
   };
 }
 

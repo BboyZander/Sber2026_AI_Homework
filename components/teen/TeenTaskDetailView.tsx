@@ -31,6 +31,7 @@ import {
 } from "@/lib/task-payment";
 import { computeTaskFitReasons } from "@/lib/teen-task-fit";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { StarRating } from "@/components/shared/StarRating";
 import { TEEN_CONFIRM, TEEN_TOASTS } from "@/lib/ui-copy";
 import type { TeenProfile } from "@/types/user";
 
@@ -453,6 +454,11 @@ export function TeenTaskDetailView({
                   {task.employerName}
                 </Link>
               </p>
+              {task.employerRating != null ? (
+                <p className="mt-1 m-0">
+                  <StarRating rating={task.employerRating} count={task.employerReviewsCount} />
+                </p>
+              ) : null}
               <p className="mt-2 m-0 text-sm leading-relaxed text-sub">{employerTagline}</p>
               {task.contactPerson ? (
                 <p className="mt-3 m-0 text-sm leading-relaxed text-ink">

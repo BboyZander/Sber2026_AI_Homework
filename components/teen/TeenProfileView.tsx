@@ -2,16 +2,19 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Application } from "@/types/application";
 import type { TeenPreferredTaskFormat, TeenProfile } from "@/types/user";
 import { AchievementCard } from "@/components/teen/AchievementCard";
 import { XPProgress } from "@/components/teen/XPProgress";
 import { SectionTitle } from "@/components/shared/SectionTitle";
+import { TeenFinanceTab } from "@/components/teen/TeenFinanceTab";
+import { TeenFavoritesTab } from "@/components/teen/TeenFavoritesTab";
+import { StatTile } from "@/components/teen/StatTile";
 import { demoAchievements } from "@/data/demo-achievements";
 import { toDashboardDisplayStats } from "@/data/teen-dashboard";
-import { formatDate, formatRub, formatXp } from "@/lib/helpers";
-import { taskComparablePayRub } from "@/lib/task-payment";
+import { formatRub, formatXp } from "@/lib/helpers";
 import { computeTeenActivityStats } from "@/lib/teen-activity-stats";
 import { pushTeenToast } from "@/lib/teen-flow";
 import {
@@ -39,6 +42,10 @@ import {
 } from "@/lib/teen-profile";
 import { TEEN_TOASTS } from "@/lib/ui-copy";
 
+type AddressSuggestion = { value: string; unrestrictedValue?: string; lat?: number; lng?: number };
+
+const RADIUS_OPTIONS = [1, 2, 3, 5, 10, 20] as const;
+
 type ProfileFormDraft = {
   name: string;
   ageInput: string;
@@ -48,6 +55,10 @@ type ProfileFormDraft = {
   motivation: string[];
   weekendAvailability: boolean;
   goalTitle: string;
+  homeAddress: string;
+  homeLat: number | null;
+  homeLng: number | null;
+  searchRadiusKm: number;
 };
 
 function serializeTeenForm(d: ProfileFormDraft): string {
@@ -60,39 +71,30 @@ function serializeTeenForm(d: ProfileFormDraft): string {
     motivation: [...d.motivation].sort(),
     weekend: d.weekendAvailability,
     goalTitle: d.goalTitle.trim(),
+    homeAddress: d.homeAddress.trim(),
+    searchRadiusKm: d.searchRadiusKm,
   });
 }
 
 const chipBtnClass =
   "touch-manipulation rounded-full border px-3 py-2 text-xs font-medium transition will-change-transform active:scale-[0.98] sm:py-1.5";
 
-function StatTile({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-}) {
-  return (
-    <div className="ui-card relative overflow-hidden border-edge bg-panel-muted/85">
-      <div
-        className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-accent/12 blur-2xl"
-        aria-hidden
-      />
-      <p className="relative m-0 text-[0.7rem] font-semibold uppercase tracking-wider text-sub">{label}</p>
-      <p className="relative mt-2 m-0 text-2xl font-bold tabular-nums text-ink">{value}</p>
-      {sub ? <p className="relative mt-1 m-0 text-xs text-sub">{sub}</p> : null}
-    </div>
-  );
-}
 
 const inputClass =
   "w-full rounded-xl border border-edge bg-panel px-4 py-2.5 text-sm text-ink outline-none ring-accent/40 transition focus:border-accent/45 focus:ring-2";
 
+type ProfileTab = "profile" | "finance" | "favorites";
+
+const TAB_LABELS: Record<ProfileTab, string> = {
+  profile: "Профиль",
+  finance: "Финансы",
+  favorites: "Избранное",
+};
+
 export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
   const reduceMotion = useReducedMotion();
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<ProfileTab>("profile");
   const [mounted, setMounted] = useState(false);
   const [teen, setTeen] = useState(initialTeen);
   const [apps, setApps] = useState<Application[]>([]);
@@ -105,6 +107,9 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
   const [openAchievementId, setOpenAchievementId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [addrSuggestions, setAddrSuggestions] = useState<AddressSuggestion[]>([]);
+  const [addrSuggestLoading, setAddrSuggestLoading] = useState(false);
+  const [addrSuggestUnavailable, setAddrSuggestUnavailable] = useState(false);
 
   const interestCodes = useMemo(() => getTeenInterestCodes(), []);
 
@@ -132,6 +137,22 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
     }
   }, []);
 
+  const switchTab = useCallback(
+    (tab: ProfileTab) => {
+      setActiveTab(tab);
+      router.replace(tab === "profile" ? "/teen/profile" : `/teen/profile?tab=${tab}`, {
+        scroll: false,
+      });
+    },
+    [router],
+  );
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("tab");
+    if (t === "finance" || t === "favorites") setActiveTab(t);
+  }, []);
+
   useEffect(() => {
     setMounted(true);
     void refresh();
@@ -157,6 +178,39 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
     return () => window.clearTimeout(t);
   }, [savedOk]);
 
+  useEffect(() => {
+    const query = draft?.homeAddress.trim() ?? "";
+    if (!editing || query.length < 3) {
+      setAddrSuggestions([]);
+      setAddrSuggestLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setAddrSuggestLoading(true);
+      try {
+        const res = await fetch(`/api/address-suggest?query=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error();
+        const data = (await res.json()) as { suggestions?: AddressSuggestion[]; configured?: boolean };
+        setAddrSuggestions(data.suggestions?.slice(0, 5) ?? []);
+        setAddrSuggestUnavailable(data.configured === false);
+      } catch (err) {
+        if ((err as DOMException).name !== "AbortError") {
+          setAddrSuggestions([]);
+          setAddrSuggestUnavailable(true);
+        }
+      } finally {
+        if (!controller.signal.aborted) setAddrSuggestLoading(false);
+      }
+    }, 280);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [draft?.homeAddress, editing]);
+
   const beginEdit = useCallback(() => {
     const t = profilePatchFromTeen(teen);
     const next: ProfileFormDraft = {
@@ -168,11 +222,17 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
       motivation: [...(teen.motivation ?? [])],
       weekendAvailability: teen.weekendAvailability ?? false,
       goalTitle: teen.earningGoal?.title ?? "",
+      homeAddress: teen.homeAddress ?? "",
+      homeLat: teen.homeLat ?? null,
+      homeLng: teen.homeLng ?? null,
+      searchRadiusKm: teen.searchRadiusKm ?? 5,
     };
     setDraft(next);
     setDirtyBaseline(serializeTeenForm(next));
     setFieldErrors({});
     setSavedOk(false);
+    setAddrSuggestions([]);
+    setAddrSuggestUnavailable(false);
     setEditing(true);
   }, [teen]);
 
@@ -204,6 +264,10 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
         title: draft.goalTitle.trim() || undefined,
         amount: teen.earningGoal?.amount,
       },
+      homeAddress: draft.homeAddress.trim() || undefined,
+      homeLat: draft.homeLat ?? undefined,
+      homeLng: draft.homeLng ?? undefined,
+      searchRadiusKm: draft.searchRadiusKm,
     });
     setEditing(false);
     setDraft(null);
@@ -273,10 +337,6 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
   const nextLevelXp = dash.nextLevelXp;
   const hint = buildTeenProfileHint(apps);
   const interests = teen.interests?.length ? teen.interests : [];
-  const walletHistory = apps
-    .filter((a) => a.status === "paid")
-    .map((a) => ({ app: a, task: tasksById[a.taskId] }))
-    .sort((a, b) => new Date(b.app.createdAt).getTime() - new Date(a.app.createdAt).getTime());
 
   const sectionEase = reduceMotion ? undefined : ([0.22, 1, 0.36, 1] as const);
 
@@ -321,6 +381,12 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
               <p className="mt-2 m-0 text-sm text-sub">
                 {[teen.city, teen.age ? `${teen.age} лет` : null].filter(Boolean).join(" · ") || "Укажи город в редактировании профиля"}
               </p>
+              {teen.homeAddress ? (
+                <p className="mt-1 m-0 text-xs text-sub">
+                  📍 {teen.homeAddress}
+                  {teen.searchRadiusKm ? ` · поиск в ${teen.searchRadiusKm} км` : ""}
+                </p>
+              ) : null}
               <p className="mt-1.5 m-0 text-xs text-sub">
                 Формат задач: {TEEN_PREFERRED_FORMAT_LABELS[teen.preferredTaskFormat ?? "any"]}
                 {teen.weekendAvailability != null
@@ -383,7 +449,7 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
               exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] as const }}
             >
-              <div className="max-h-[min(60dvh,480px)] flex-1 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-2 sm:max-h-none sm:overflow-visible sm:p-5 sm:pb-3">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 pt-4 pb-2 sm:overflow-visible sm:p-5 sm:pb-3">
                 <p className="m-0 text-xs font-semibold uppercase tracking-wider text-sub">Редактирование</p>
                 <p className="mt-1 m-0 text-sm text-sub">Поправь поля и нажми «Сохранить».</p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -520,43 +586,111 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
                       placeholder="Например, новый телефон"
                     />
                   </label>
+                  <div className="sm:col-span-2">
+                    <span className="mb-1 block text-xs font-medium text-sub">Домашний адрес (для гео-поиска задач)</span>
+                    <input
+                      className={inputClass}
+                      value={draft.homeAddress}
+                      onChange={(e) =>
+                        setDraft((d) =>
+                          d ? { ...d, homeAddress: e.target.value, homeLat: null, homeLng: null } : d,
+                        )
+                      }
+                      placeholder="Начни вводить адрес"
+                      autoComplete="street-address"
+                    />
+                    {addrSuggestions.length > 0 ? (
+                      <div className="mt-1 overflow-hidden rounded-xl border border-edge bg-panel shadow-lg shadow-black/10">
+                        {addrSuggestions.map((item) => (
+                          <button
+                            key={item.unrestrictedValue ?? item.value}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setDraft((d) =>
+                                d
+                                  ? {
+                                      ...d,
+                                      homeAddress: item.value,
+                                      homeLat: item.lat ?? null,
+                                      homeLng: item.lng ?? null,
+                                    }
+                                  : d,
+                              );
+                              setAddrSuggestions([]);
+                            }}
+                            className="block w-full border-0 bg-transparent px-4 py-2.5 text-left text-sm text-ink transition hover:bg-panel-muted focus-visible:bg-panel-muted focus-visible:outline-none"
+                          >
+                            {item.value}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    {addrSuggestLoading ? (
+                      <p className="m-0 mt-1 text-xs text-sub">Ищем адрес…</p>
+                    ) : addrSuggestUnavailable ? (
+                      <p className="m-0 mt-1 text-xs text-sub-deep">Подсказки недоступны — введи вручную.</p>
+                    ) : null}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="mb-2 block text-xs font-medium text-sub">
+                      Радиус поиска задач: {draft.searchRadiusKm} км
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {RADIUS_OPTIONS.map((km) => {
+                        const on = draft.searchRadiusKm === km;
+                        return (
+                          <button
+                            key={km}
+                            type="button"
+                            onClick={() => setDraft((d) => (d ? { ...d, searchRadiusKm: km } : d))}
+                            className={`${chipBtnClass} ${
+                              on
+                                ? "border-accent/55 bg-accent/18 text-ink ring-1 ring-accent/25"
+                                : "border-edge bg-panel-muted/50 text-sub hover:border-edge-strong hover:text-ink"
+                            }`}
+                          >
+                            {km} км
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="sticky bottom-0 z-[1] flex flex-wrap items-center justify-between gap-2 border-t border-edge/80 bg-canvas/95 px-4 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:static sm:z-0 sm:border-0 sm:bg-transparent sm:px-5 sm:pb-5 sm:pt-0 sm:backdrop-blur-none">
-                {/* Удаление — слева, двухшаговое подтверждение */}
-                <div className="flex items-center gap-2">
-                  {!deleteConfirm ? (
+              <div className="shrink-0 z-[1] flex flex-wrap items-center justify-between gap-2 border-t border-edge/80 bg-canvas/95 px-4 py-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:border-0 sm:bg-transparent sm:px-5 sm:pb-5 sm:pt-0 sm:backdrop-blur-none">
+                {/* Удаление — слева от Отмены */}
+                {!deleteConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirm(true)}
+                    disabled={deleting}
+                    className="rounded-lg border border-rose-500/30 px-3 py-2 text-xs font-medium text-rose-400 transition hover:bg-rose-500/10 hover:border-rose-500/50 disabled:opacity-40 sm:py-1.5"
+                  >
+                    Удалить аккаунт
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-rose-400">Точно удалить?</span>
                     <button
                       type="button"
-                      onClick={() => setDeleteConfirm(true)}
+                      onClick={() => void deleteAccount()}
                       disabled={deleting}
-                      className="px-3 py-2.5 text-xs font-medium text-sub/60 transition hover:text-rose-400 disabled:opacity-40 sm:py-2"
+                      className="rounded-lg border border-rose-500/50 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-400 transition hover:bg-rose-500/25 disabled:opacity-50"
                     >
-                      Удалить аккаунт
+                      {deleting ? "Удаляем…" : "Да"}
                     </button>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-rose-400">Удалить навсегда?</span>
-                      <button
-                        type="button"
-                        onClick={() => void deleteAccount()}
-                        disabled={deleting}
-                        className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-400 transition hover:bg-rose-500/20 disabled:opacity-50"
-                      >
-                        {deleting ? "Удаляем…" : "Да, удалить"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteConfirm(false)}
-                        disabled={deleting}
-                        className="text-xs text-sub transition hover:text-ink disabled:opacity-40"
-                      >
-                        Отмена
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {/* Основные действия — справа */}
+                    <button
+                      type="button"
+                      onClick={() => setDeleteConfirm(false)}
+                      disabled={deleting}
+                      className="text-xs text-sub transition hover:text-ink"
+                    >
+                      Нет
+                    </button>
+                  </div>
+                )}
+                {/* Основные кнопки — справа */}
                 <div className="flex items-center gap-2">
                   <button type="button" className="ui-btn-ghost border-0 px-4 py-2.5 sm:py-2" onClick={cancelEdit}>
                     Отмена
@@ -594,98 +728,94 @@ export function TeenProfileView({ initialTeen }: { initialTeen: TeenProfile }) {
 
       {!editing ? (
         <>
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.06, ease: sectionEase }}
-          >
-            <XPProgress currentXp={currentXp} nextLevelXp={nextLevelXp} />
-          </motion.div>
-
-          <motion.section
-            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.1, ease: sectionEase }}
-          >
-            <SectionTitle title="Активность" />
-            <div className="grid gap-3 sm:grid-cols-3">
-              <StatTile label="Отклики" value={String(activity.applicationsCount)} sub="всего в списке" />
-              <StatTile label="Завершено" value={String(activity.completedTasksCount)} sub="«Ждёт подтверждения» и «Оплачено»" />
-              <StatTile label="Заработано (демо)" value={formatRub(activity.earnedDemoRub)} sub="по задачам со статусом «Оплачено»" />
-            </div>
-          </motion.section>
-
-          <motion.section
-            className="ui-card border-accent/25 bg-gradient-to-br from-accent/[0.08] via-panel-muted/50 to-transparent"
-            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.14, ease: sectionEase }}
-          >
-            <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-accent-bright">{hint.eyebrow}</p>
-            <h2 className="mt-2 m-0 text-lg font-semibold text-ink">{hint.title}</h2>
-            <p className="mt-2 m-0 text-sm leading-relaxed text-sub">{hint.body}</p>
-            {hint.href && hint.cta ? (
-              <Link
-                href={hint.href}
-                className="mt-4 inline-flex text-sm font-semibold text-accent transition hover:text-accent-bright"
+          {/* Таб-навигация */}
+          <div className="flex gap-1 rounded-xl border border-edge bg-panel-muted/60 p-1">
+            {(["profile", "finance", "favorites"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => switchTab(tab)}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  activeTab === tab
+                    ? "bg-canvas text-ink shadow-sm"
+                    : "text-sub hover:text-ink"
+                }`}
               >
-                {hint.cta} →
-              </Link>
-            ) : null}
-          </motion.section>
+                {TAB_LABELS[tab]}
+              </button>
+            ))}
+          </div>
 
-          <motion.section
-            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.18, ease: sectionEase }}
-          >
-            <SectionTitle title="Достижения" />
-            <p className="-mt-1 mb-4 text-sm text-sub">
-              Награды за шаги в сервисе: копи XP и открывай уровни.
-            </p>
-            <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {demoAchievements.map((a, i) => (
-                <AchievementCard
-                  key={a.id}
-                  achievement={a}
-                  index={i}
-                  mobileOpen={openAchievementId === a.id}
-                  onMobileToggle={() => setOpenAchievementId((current) => (current === a.id ? null : a.id))}
-                />
-              ))}
-            </div>
-          </motion.section>
+          {/* Вкладка «Профиль» */}
+          {activeTab === "profile" ? (
+            <>
+              <motion.div
+                initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.06, ease: sectionEase }}
+              >
+                <XPProgress currentXp={currentXp} nextLevelXp={nextLevelXp} />
+              </motion.div>
 
-          <motion.section
-            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.22, ease: sectionEase }}
-          >
-            <SectionTitle title="История кошелька" />
-            {walletHistory.length === 0 ? (
-              <div className="ui-card border-edge bg-panel-muted/75">
-                <p className="m-0 text-sm text-sub">
-                  Пока пусто. Когда работодатель подтвердит оплату, здесь появится запись с суммой.
+              <motion.section
+                initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.1, ease: sectionEase }}
+              >
+                <SectionTitle title="Активность" />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <StatTile label="Отклики" value={String(activity.applicationsCount)} sub="всего в списке" />
+                  <StatTile label="Завершено" value={String(activity.completedTasksCount)} sub="«Ждёт подтверждения» и «Оплачено»" />
+                  <StatTile label="Заработано" value={formatRub(activity.earnedDemoRub)} sub="по оплаченным задачам" />
+                </div>
+              </motion.section>
+
+              <motion.section
+                className="ui-card border-accent/25 bg-gradient-to-br from-accent/[0.08] via-panel-muted/50 to-transparent"
+                initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.14, ease: sectionEase }}
+              >
+                <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-accent-bright">{hint.eyebrow}</p>
+                <h2 className="mt-2 m-0 text-lg font-semibold text-ink">{hint.title}</h2>
+                <p className="mt-2 m-0 text-sm leading-relaxed text-sub">{hint.body}</p>
+                {hint.href && hint.cta ? (
+                  <Link
+                    href={hint.href}
+                    className="mt-4 inline-flex text-sm font-semibold text-accent transition hover:text-accent-bright"
+                  >
+                    {hint.cta} →
+                  </Link>
+                ) : null}
+              </motion.section>
+
+              <motion.section
+                initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.18, ease: sectionEase }}
+              >
+                <SectionTitle title="Достижения" />
+                <p className="-mt-1 mb-4 text-sm text-sub">
+                  Награды за шаги в сервисе: копи XP и открывай уровни.
                 </p>
-              </div>
-            ) : (
-              <div className="ui-card border-edge-strong">
-                <ul className="m-0 flex list-none flex-col gap-2 p-0">
-                  {walletHistory.map(({ app, task }) => (
-                    <li key={app.id} className="rounded-xl border border-edge bg-panel px-3 py-2">
-                      <div className="flex flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
-                        <p className="m-0 text-sm font-medium text-ink">{task?.title ?? `Задача ${app.taskId}`}</p>
-                        <p className="m-0 text-sm font-semibold text-accent-bright">
-                          {formatRub(task ? taskComparablePayRub(task) : 0)}
-                        </p>
-                      </div>
-                      <p className="m-0 mt-1 text-xs text-sub sm:mt-1">Зачислено {formatDate(app.createdAt)}</p>
-                    </li>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {demoAchievements.map((a, i) => (
+                    <AchievementCard
+                      key={a.id}
+                      achievement={a}
+                      index={i}
+                      mobileOpen={openAchievementId === a.id}
+                      onMobileToggle={() => setOpenAchievementId((current) => (current === a.id ? null : a.id))}
+                    />
                   ))}
-                </ul>
-              </div>
-            )}
-          </motion.section>
+                </div>
+              </motion.section>
+            </>
+          ) : activeTab === "finance" ? (
+            <TeenFinanceTab teen={teen} apps={apps} tasksById={tasksById} />
+          ) : (
+            <TeenFavoritesTab />
+          )}
         </>
       ) : null}
     </div>

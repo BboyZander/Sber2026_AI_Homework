@@ -7,6 +7,7 @@ import { CATEGORY_LABELS, type TaskCategory } from "@/lib/constants";
 import { EMPLOYER_CUSTOMER_TYPE_LABELS } from "@/lib/employer-profile";
 import { createClient } from "@/lib/supabase/client";
 import type { EmployerCustomerType, EmployerProfile } from "@/types/user";
+import { StarRating } from "@/components/shared/StarRating";
 
 export function TeenEmployerPublicProfileView({ employerId }: { employerId: string }) {
   const [profile, setProfile] = useState<EmployerProfile | null>(null);
@@ -55,6 +56,8 @@ export function TeenEmployerPublicProfileView({ employerId }: { employerId: stri
         taskCategories: (e.task_categories as TaskCategory[]) ?? undefined,
         cabinetDescription: (e.cabinet_description as string) ?? undefined,
         cabinetTags: (e.cabinet_tags as string[]) ?? undefined,
+        rating: (e.rating as number) ?? undefined,
+        reviewsCount: (e.reviews_count as number) ?? undefined,
       });
 
       const { data: tasks } = await supabase
@@ -129,11 +132,12 @@ export function TeenEmployerPublicProfileView({ employerId }: { employerId: stri
             <span className="rounded-lg border border-accent/40 bg-accent/15 px-2.5 py-1 text-xs font-medium text-accent-bright">
               Проверенный заказчик
             </span>
-          ) : (
-            <span className="rounded-lg border border-edge bg-panel-muted/40 px-2.5 py-1 text-xs text-sub">
-              Демо: отзывы и рейтинг не подключены
+          ) : null}
+          {profile.rating != null ? (
+            <span className="rounded-lg border border-edge bg-panel-muted/60 px-2.5 py-1">
+              <StarRating rating={profile.rating} count={profile.reviewsCount} />
             </span>
-          )}
+          ) : null}
         </div>
       </header>
 

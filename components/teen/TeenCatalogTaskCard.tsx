@@ -13,6 +13,7 @@ import {
 import { formatDate } from "@/lib/helpers";
 import { formatTaskAgeRange } from "@/lib/task-age";
 import { taskPaymentTeenEstimatedTotalLine, taskPaymentTeenPrimaryLine } from "@/lib/task-payment";
+import { StarRating } from "@/components/shared/StarRating";
 import {
   TEEN_APPLICATIONS_EVENT,
   getApplicationForTaskCached,
@@ -128,12 +129,17 @@ export function TeenCatalogTaskCard({ task }: { task: Task }) {
           {task.title}
         </h3>
       </Link>
-      <Link
-        href={`/teen/employer/${task.employerId}`}
-        className="mt-1 line-clamp-1 inline-block text-xs font-medium text-accent underline-offset-2 hover:text-accent-bright hover:underline"
-      >
-        {task.employerName}
-      </Link>
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <Link
+          href={`/teen/employer/${task.employerId}`}
+          className="line-clamp-1 text-xs font-medium text-accent underline-offset-2 hover:text-accent-bright hover:underline"
+        >
+          {task.employerName}
+        </Link>
+        {task.employerRating != null ? (
+          <StarRating rating={task.employerRating} compact />
+        ) : null}
+      </div>
 
       {/* Цена крупно */}
       <Link href={`/teen/tasks/${task.id}`} className="mt-2 block text-inherit no-underline sm:mt-3">

@@ -48,6 +48,12 @@ export interface TaskRow {
   minor_compliance_reasons: string[] | null;
   deadline: string | null;
   created_at: string;
+  /** E5: из LEFT JOIN employer_profiles — может отсутствовать. */
+  employer_rating?: number | null;
+  employer_reviews_count?: number | null;
+  /** E2.7: координаты офлайн-задачи. */
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export function rowToTask(r: TaskRow): Task {
@@ -87,6 +93,10 @@ export function rowToTask(r: TaskRow): Task {
     minorComplianceReasons: r.minor_compliance_reasons ?? [],
     deadline: r.deadline ?? undefined,
     createdAt: r.created_at,
+    employerRating: r.employer_rating ?? undefined,
+    employerReviewsCount: r.employer_reviews_count ?? undefined,
+    lat: r.lat ?? undefined,
+    lng: r.lng ?? undefined,
   };
 }
 
@@ -150,5 +160,6 @@ export function rowToApplication(r: ApplicationRow): Application {
     status: r.status as ApplicationStatus,
     message: r.message ?? undefined,
     createdAt: r.created_at,
+    paidAt: r.paid_at ?? undefined,
   };
 }

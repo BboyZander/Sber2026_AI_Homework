@@ -31,6 +31,8 @@ export type DrawerFilterState = {
   /** Время задано точно / гибкий график (F2.6). */
   schedule: TeenCatalogSchedule;
   sort: TeenCatalogSort;
+  /** E5: минимальный рейтинг работодателя; null — без ограничения. */
+  minEmployerRating: number | null;
 };
 
 export const teenCatalogDrawerDefaults: DrawerFilterState = {
@@ -42,6 +44,7 @@ export const teenCatalogDrawerDefaults: DrawerFilterState = {
   weekday: "all",
   schedule: "all",
   sort: "recommended",
+  minEmployerRating: null,
 };
 
 const SORT_OPTIONS: { value: TeenCatalogSort; label: string }[] = [
@@ -172,6 +175,49 @@ function DurationHoursFilter({
             : "Лимит зависит от возраста (4–7 ч по ТК РФ): укажи его в профиле — посчитаем точнее."}
         </p>
       )}
+    </div>
+  );
+}
+
+function RatingSlider({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: number | null;
+  onChange: (next: number | null) => void;
+  disabled?: boolean;
+}) {
+  const sliderVal = value ?? 0;
+  return (
+    <div className="w-full">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs text-sub">Минимальный рейтинг</span>
+        <span className="text-sm font-semibold text-ink">
+          {sliderVal === 0 ? "Любой" : `★ ≥ ${sliderVal}`}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={5}
+        step={1}
+        value={sliderVal}
+        disabled={disabled}
+        onChange={(e) => {
+          const n = Number(e.target.value);
+          onChange(n === 0 ? null : n);
+        }}
+        className="w-full cursor-pointer accent-[var(--color-accent)] disabled:opacity-50"
+      />
+      <div className="mt-1.5 flex justify-between text-[0.65rem] text-sub-deep">
+        <span>Любой</span>
+        <span>1</span>
+        <span>2</span>
+        <span>3</span>
+        <span>4</span>
+        <span>5</span>
+      </div>
     </div>
   );
 }
@@ -348,6 +394,14 @@ export function TeenTaskFiltersDrawer({
                   value={draft.maxDurationHours}
                   onChange={(next) => setDraft((d) => ({ ...d, maxDurationHours: next }))}
                   teenAge={teenAge}
+                  disabled={disabled}
+                />
+              </Section>
+
+              <Section title="Рейтинг работодателя">
+                <RatingSlider
+                  value={draft.minEmployerRating}
+                  onChange={(next) => setDraft((d) => ({ ...d, minEmployerRating: next }))}
                   disabled={disabled}
                 />
               </Section>

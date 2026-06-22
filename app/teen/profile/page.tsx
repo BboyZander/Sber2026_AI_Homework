@@ -1,9 +1,11 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shared/AppShell";
 import { TeenProfileView } from "@/components/teen/TeenProfileView";
-import { getDemoTeen } from "@/data/demo-users";
+import { getServerTeenProfile } from "@/lib/supabase/queries";
 
-export default function TeenProfilePage() {
-  const teen = getDemoTeen();
+export default async function TeenProfilePage() {
+  const teen = await getServerTeenProfile();
+  if (!teen) redirect("/login");
 
   return (
     <AppShell variant="teen" title="Профиль">

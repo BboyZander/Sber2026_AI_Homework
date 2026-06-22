@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 
+type Suggestion = { value: string; unrestrictedValue: string; lat?: number; lng?: number };
+
+// ── Yandex Geocoder ──────────────────────────────────────────────────────────
+
 type YandexGeoObject = {
   name?: string;
   description?: string;
+  Point?: { pos?: string };
   metaDataProperty?: {
     GeocoderMetaData?: {
       text?: string;
-      Address?: {
-        formatted?: string;
-      };
+      Address?: { formatted?: string };
     };
   };
 };
@@ -16,63 +19,99 @@ type YandexGeoObject = {
 type YandexGeocoderResponse = {
   response?: {
     GeoObjectCollection?: {
-      featureMember?: Array<{
-        GeoObject?: YandexGeoObject;
-      }>;
+      featureMember?: Array<{ GeoObject?: YandexGeoObject }>;
     };
   };
 };
 
-const YANDEX_GEOCODER_URL = "https://geocode-maps.yandex.ru/1.x/";
+async function fetchYandex(query: string, token: string): Promise<Suggestion[]> {
+  const params = new URLSearchParams({
+    apikey: token,
+    geocode: query,
+    format: "json",
+    lang: "ru_RU",
+    results: "5",
+  });
+  const res = await fetch(`https://geocode-maps.yandex.ru/1.x/?${params}`, {
+    next: { revalidate: 86400 },
+  });
+  if (!res.ok) return [];
+  const data = (await res.json()) as YandexGeocoderResponse;
+  return (data.response?.GeoObjectCollection?.featureMember ?? [])
+    .map(({ GeoObject }) => {
+      const value =
+        GeoObject?.metaDataProperty?.GeocoderMetaData?.text ??
+        GeoObject?.metaDataProperty?.GeocoderMetaData?.Address?.formatted ??
+        [GeoObject?.description, GeoObject?.name].filter(Boolean).join(", ");
+      const [lonStr, latStr] = (GeoObject?.Point?.pos ?? "").split(" ");
+      const lat = parseFloat(latStr ?? "");
+      const lng = parseFloat(lonStr ?? "");
+      return {
+        value,
+        unrestrictedValue: value,
+        lat: isFinite(lat) ? lat : undefined,
+        lng: isFinite(lng) ? lng : undefined,
+      };
+    })
+    .filter((s) => s.value.length > 0);
+}
+
+// ── Nominatim (OpenStreetMap) — бесплатный fallback ──────────────────────────
+
+type NominatimItem = {
+  display_name?: string;
+  lat?: string;
+  lon?: string;
+};
+
+async function fetchNominatim(query: string): Promise<Suggestion[]> {
+  const params = new URLSearchParams({
+    q: query,
+    format: "json",
+    limit: "5",
+    "accept-language": "ru",
+    countrycodes: "ru",
+    addressdetails: "0",
+  });
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+    headers: { "User-Agent": "Traektoria-Demo/1.0" },
+    next: { revalidate: 86400 },
+  });
+  if (!res.ok) return [];
+  const data = (await res.json()) as NominatimItem[];
+  return data
+    .map((item) => {
+      const value = item.display_name ?? "";
+      const lat = parseFloat(item.lat ?? "");
+      const lng = parseFloat(item.lon ?? "");
+      return {
+        value,
+        unrestrictedValue: value,
+        lat: isFinite(lat) ? lat : undefined,
+        lng: isFinite(lng) ? lng : undefined,
+      };
+    })
+    .filter((s) => s.value.length > 0);
+}
+
+// ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("query")?.trim() ?? "";
-  const token = process.env.YANDEX_GEOCODER_API_KEY ?? process.env.YANDEX_MAPS_API_KEY;
 
   if (query.length < 3) {
-    return NextResponse.json({ suggestions: [], configured: Boolean(token) });
+    return NextResponse.json({ suggestions: [], configured: true });
   }
 
-  if (!token) {
-    return NextResponse.json({ suggestions: [], configured: false });
-  }
+  const token = process.env.YANDEX_GEOCODER_API_KEY ?? process.env.YANDEX_MAPS_API_KEY;
 
   try {
-    const params = new URLSearchParams({
-      apikey: token,
-      geocode: query,
-      format: "json",
-      lang: "ru_RU",
-      results: "5",
-    });
-
-    const response = await fetch(`${YANDEX_GEOCODER_URL}?${params.toString()}`, {
-      next: { revalidate: 60 * 60 * 24 },
-    });
-
-    if (!response.ok) {
-      return NextResponse.json({ suggestions: [], configured: true }, { status: 200 });
-    }
-
-    const data = (await response.json()) as YandexGeocoderResponse;
-    const featureMembers = data.response?.GeoObjectCollection?.featureMember ?? [];
-    const suggestions = featureMembers
-      .map(({ GeoObject }) => {
-        const value =
-          GeoObject?.metaDataProperty?.GeocoderMetaData?.text ??
-          GeoObject?.metaDataProperty?.GeocoderMetaData?.Address?.formatted ??
-          [GeoObject?.description, GeoObject?.name].filter(Boolean).join(", ");
-
-        return {
-          value,
-          unrestrictedValue: value,
-        };
-      })
-      .filter((item) => item.value.length > 0);
-
+    const suggestions = token
+      ? await fetchYandex(query, token)
+      : await fetchNominatim(query);
     return NextResponse.json({ suggestions, configured: true });
   } catch {
-    return NextResponse.json({ suggestions: [], configured: true }, { status: 200 });
+    return NextResponse.json({ suggestions: [], configured: true });
   }
 }

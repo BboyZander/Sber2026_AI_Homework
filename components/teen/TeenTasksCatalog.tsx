@@ -92,23 +92,35 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
+  const [minEmployerRating, setMinEmployerRating] = useState<number | null>(null);
+  const [nearMe, setNearMe] = useState(false);
+  const [homeCoords, setHomeCoords] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerDraft, setDrawerDraft] = useState<DrawerFilterState>(teenCatalogDrawerDefaults);
 
   useEffect(() => {
-    function syncAge() {
-      const a = getTeenProfileCached()?.age;
+    function syncProfile() {
+      const profile = getTeenProfileCached();
+      const a = profile?.age;
       const n = typeof a === "number" && Number.isFinite(a) ? a : undefined;
       setTeenAge(n);
       if (n === undefined) {
         setAgeFitMode((m) => (m === "mine" ? "all" : m));
       }
+      const { homeLat, homeLng, searchRadiusKm } = profile ?? {};
+      if (homeLat != null && homeLng != null) {
+        setHomeCoords({ lat: homeLat, lng: homeLng, radiusKm: searchRadiusKm ?? 5 });
+      } else {
+        setHomeCoords(null);
+        setNearMe(false);
+      }
     }
     void loadTeenProfile();
-    syncAge();
+    syncProfile();
     function onProfile(e: Event) {
       const d = (e as CustomEvent<ProfileUpdatedDetail>).detail;
-      if (d?.role === "teen") syncAge();
+      if (d?.role === "teen") syncProfile();
     }
     window.addEventListener(PROFILE_UPDATED_EVENT, onProfile);
     return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
@@ -138,6 +150,10 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
       ageFitMode,
       teenAge,
       favoriteTaskIds: favoritesOnly ? favoriteIds : undefined,
+      minEmployerRating,
+      maxDistanceKm: nearMe && homeCoords ? homeCoords.radiusKm : null,
+      homeLat: homeCoords?.lat,
+      homeLng: homeCoords?.lng,
     }),
     [
       query,
@@ -152,6 +168,9 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
       teenAge,
       favoritesOnly,
       favoriteIds,
+      minEmployerRating,
+      nearMe,
+      homeCoords,
     ],
   );
 
@@ -166,8 +185,9 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
     if (weekday !== "all") n++;
     if (schedule !== "all") n++;
     if (sort === "pay_low" || sort === "new" || sort === "soonest") n++;
+    if (minEmployerRating !== null) n++;
     return n;
-  }, [category, workFormat, maxDurationHours, paymentType, weekday, schedule, sort]);
+  }, [category, workFormat, maxDurationHours, paymentType, weekday, schedule, sort, minEmployerRating]);
 
   const hasActiveFilters = useMemo(() => {
     return (
@@ -180,9 +200,11 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
       schedule !== "all" ||
       sort !== "recommended" ||
       ageFitMode === "mine" ||
-      favoritesOnly
+      favoritesOnly ||
+      minEmployerRating !== null ||
+      nearMe
     );
-  }, [query, category, workFormat, maxDurationHours, paymentType, weekday, schedule, sort, ageFitMode, favoritesOnly]);
+  }, [query, category, workFormat, maxDurationHours, paymentType, weekday, schedule, sort, ageFitMode, favoritesOnly, minEmployerRating, nearMe]);
 
   const resetFilters = useCallback(() => {
     setQuery("");
@@ -195,6 +217,8 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
     setSort("recommended");
     setAgeFitMode("all");
     setFavoritesOnly(false);
+    setMinEmployerRating(null);
+    setNearMe(false);
     setDrawerDraft(teenCatalogDrawerDefaults);
   }, []);
 
@@ -208,9 +232,10 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
       weekday,
       schedule,
       sort,
+      minEmployerRating,
     });
     setDrawerOpen(true);
-  }, [ageFitMode, category, workFormat, maxDurationHours, paymentType, weekday, schedule, sort]);
+  }, [ageFitMode, category, workFormat, maxDurationHours, paymentType, weekday, schedule, sort, minEmployerRating]);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
@@ -225,6 +250,7 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
     setWeekday(drawerDraft.weekday);
     setSchedule(drawerDraft.schedule);
     setSort(drawerDraft.sort);
+    setMinEmployerRating(drawerDraft.minEmployerRating);
     setDrawerOpen(false);
   }, [drawerDraft, teenAge]);
 
@@ -314,8 +340,22 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
         onRemove: () => setWorkFormat("all"),
       });
     }
+    if (minEmployerRating !== null) {
+      chips.push({
+        id: `rating-${minEmployerRating}`,
+        label: `★ ≥ ${minEmployerRating}`,
+        onRemove: () => setMinEmployerRating(null),
+      });
+    }
+    if (nearMe && homeCoords) {
+      chips.push({
+        id: "near-me",
+        label: `≤ ${homeCoords.radiusKm} км`,
+        onRemove: () => setNearMe(false),
+      });
+    }
     return chips;
-  }, [query, ageFitMode, workFormat, maxDurationHours, weekday, schedule, paymentType, sort, category, favoritesOnly]);
+  }, [query, ageFitMode, workFormat, maxDurationHours, weekday, schedule, paymentType, sort, category, favoritesOnly, minEmployerRating, nearMe, homeCoords]);
 
   return (
     <div className="ui-stack">
@@ -345,6 +385,14 @@ export function TeenTasksCatalog({ tasks, loading = false }: { tasks: Task[]; lo
               onClick={() => setAgeFitMode(ageFitMode === "mine" ? "all" : "mine")}
             >
               Подходит мне
+            </QuickChip>
+            <QuickChip
+              active={nearMe}
+              disabled={loading || homeCoords === null}
+              title={homeCoords === null ? "Укажи домашний адрес в профиле" : undefined}
+              onClick={() => setNearMe((v) => !v)}
+            >
+              {homeCoords ? `Рядом (${homeCoords.radiusKm} км)` : "Рядом со мной"}
             </QuickChip>
             <QuickChip
               active={workFormat === "online"}

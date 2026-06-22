@@ -58,4 +58,11 @@ export interface Task {
   minorComplianceReasons: string[];
   deadline?: string;
   createdAt: string;
+  /** E5: рейтинг работодателя, денормализованный через JOIN при загрузке каталога. */
+  employerRating?: number;
+  /** E5: число отзывов работодателя. */
+  employerReviewsCount?: number;
+  /** E2.7: координаты для гео-фильтра (только офлайн-задачи). */
+  lat?: number;
+  lng?: number;
 }

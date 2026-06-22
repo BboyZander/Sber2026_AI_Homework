@@ -13,37 +13,13 @@ import {
   loadApplications,
 } from "@/lib/teen-applications-client";
 import { getTeenEarningGoal, setTeenEarningGoal } from "@/lib/teen-earning-goal";
+import { EarningGoalRing } from "@/components/teen/EarningGoalRing";
 import { RecommendedTasks } from "@/components/teen/RecommendedTasks";
 import { TeenTasksCatalogView } from "@/components/teen/TeenTasksCatalogView";
 import type { TeenProfile } from "@/types/user";
 
 type ActiveTaskInfo = { taskId: string; title: string; statusLabel: string } | null;
 
-/** Круговая диаграмма прогресса к цели заработка (демо). */
-function EarningGoalRing({ progress, size = 56, strokeWidth = 6 }: { progress: number; size?: number; strokeWidth?: number }) {
-  // Радиус чуть меньше половины кадра — иначе скруглённые концы дуги (strokeLinecap="round") вылезают за viewBox и обрезаются.
-  const radius = size / 2 - strokeWidth;
-  const circumference = 2 * Math.PI * radius;
-  const clamped = Math.min(1, Math.max(0, progress));
-  const offset = circumference * (1 - clamped);
-  const center = size / 2;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90 shrink-0" aria-hidden="true">
-      <circle cx={center} cy={center} r={radius} fill="none" strokeWidth={strokeWidth} className="stroke-panel-muted/70" />
-      <circle
-        cx={center}
-        cy={center}
-        r={radius}
-        fill="none"
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        className="stroke-accent-bright transition-[stroke-dashoffset] duration-500 ease-out"
-      />
-    </svg>
-  );
-}
 
 export function TeenHomeView({ teen: initialTeen }: { teen: TeenProfile }) {
   const [teenName, setTeenName] = useState(initialTeen.name);
@@ -170,7 +146,15 @@ export function TeenHomeView({ teen: initialTeen }: { teen: TeenProfile }) {
         </div>
 
         <div className="ui-card flex flex-col justify-between">
-          <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-sub">Заработано</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-sub">Заработано</p>
+            <Link
+              href="/teen/profile?tab=finance"
+              className="text-[0.65rem] font-medium text-accent no-underline transition hover:text-accent-bright"
+            >
+              Подробнее →
+            </Link>
+          </div>
           <div className="mt-1.5 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="m-0 text-xl font-bold tabular-nums leading-none text-ink">{formatRub(earnedRub)}</p>

@@ -29,6 +29,13 @@ export interface TeenProfile extends User {
   weekendAvailability?: boolean;
   /** F0.6/E9: личная цель заработка (перенесено из localStorage в Supabase). */
   earningGoal?: { title?: string; amount?: number };
+  /** E9: домашний адрес для гео-фильтра задач. */
+  homeAddress?: string;
+  /** E9: координаты дома (заполняются геокодером). */
+  homeLat?: number;
+  homeLng?: number;
+  /** E9: радиус поиска задач от дома, км. */
+  searchRadiusKm?: number;
 }
 
 /** Тип заказчика в кабинете работодателя (демо). */
@@ -51,4 +58,8 @@ export interface EmployerProfile extends User {
   taskCategories?: TaskCategory[];
   cabinetDescription?: string;
   cabinetTags?: string[];
+  /** E5: рейтинг работодателя (0.0–5.0, numeric(2,1) из БД). */
+  rating?: number;
+  /** E5: число отзывов. */
+  reviewsCount?: number;
 }

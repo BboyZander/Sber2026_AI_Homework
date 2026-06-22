@@ -4,6 +4,7 @@ import {
   type TaskPaymentTypeFilter,
   type WorkFormat,
 } from "@/lib/constants";
+import { haversineKm } from "@/lib/haversine";
 import { taskAcceptsTeenAge } from "@/lib/task-age";
 import { taskComparablePayRub } from "@/lib/task-payment";
 import type { Task } from "@/types/task";
@@ -31,6 +32,12 @@ export type TeenCatalogFilterInput = {
   teenAge?: number;
   /** Фильтр «Избранное» (E8): если задан, оставляем только задачи из набора. */
   favoriteTaskIds?: Set<string>;
+  /** E5: минимальный рейтинг работодателя; null — без ограничения. */
+  minEmployerRating?: number | null;
+  /** E2.7: гео-фильтр. Онлайн-задачи всегда проходят. */
+  maxDistanceKm?: number | null;
+  homeLat?: number;
+  homeLng?: number;
 };
 
 /** Та же логика, что раньше в useMemo каталога подростка. */
@@ -63,6 +70,18 @@ export function filterTeenCatalogTasks(tasks: Task[], f: TeenCatalogFilterInput)
   }
   if (f.schedule !== "all") {
     list = list.filter((t) => (f.schedule === "fixed" ? t.hasFixedSchedule : !t.hasFixedSchedule));
+  }
+  if (f.minEmployerRating != null) {
+    const min = f.minEmployerRating;
+    list = list.filter((t) => (t.employerRating ?? 0) >= min);
+  }
+  if (f.maxDistanceKm != null && f.homeLat != null && f.homeLng != null) {
+    const { maxDistanceKm, homeLat, homeLng } = f;
+    list = list.filter(
+      (t) =>
+        t.workFormat === "online" ||
+        (t.lat != null && t.lng != null && haversineKm(homeLat, homeLng, t.lat, t.lng) <= maxDistanceKm),
+    );
   }
   if (f.favoriteTaskIds) {
     const favorites = f.favoriteTaskIds;

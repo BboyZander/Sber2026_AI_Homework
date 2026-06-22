@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TeenPreferredTaskFormat } from "@/types/user";
 import { updateTeenProfileFields } from "@/lib/teen-profile-client";
@@ -14,8 +14,12 @@ const STEP_TITLES = [
   "Что мотивирует?",
   "Какой формат удобнее?",
   "Готов работать на выходных?",
+  "Откуда будешь работать?",
   "Что тебе интересно?",
 ] as const;
+
+type AddressSuggestion = { value: string; unrestrictedValue?: string; lat?: number; lng?: number };
+const RADIUS_OPTIONS = [1, 2, 3, 5, 10, 20] as const;
 
 const TOTAL_STEPS = STEP_TITLES.length;
 
@@ -59,9 +63,43 @@ export function OnboardingFlow({ teenName }: { teenName: string }) {
   const [motivation, setMotivation] = useState<string[]>([]);
   const [format, setFormat] = useState<TeenPreferredTaskFormat>("any");
   const [weekend, setWeekend] = useState<boolean | null>(null);
+  const [homeAddress, setHomeAddress] = useState("");
+  const [homeLat, setHomeLat] = useState<number | null>(null);
+  const [homeLng, setHomeLng] = useState<number | null>(null);
+  const [searchRadiusKm, setSearchRadiusKm] = useState(5);
+  const [addrSuggestions, setAddrSuggestions] = useState<AddressSuggestion[]>([]);
+  const [addrSuggestLoading, setAddrSuggestLoading] = useState(false);
   const [interests, setInterests] = useState<string[]>([]);
 
   const isLast = step === TOTAL_STEPS - 1;
+
+  useEffect(() => {
+    if (step !== 4 || homeAddress.trim().length < 3) {
+      setAddrSuggestions([]);
+      setAddrSuggestLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setAddrSuggestLoading(true);
+      try {
+        const res = await fetch(`/api/address-suggest?query=${encodeURIComponent(homeAddress.trim())}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error();
+        const data = (await res.json()) as { suggestions?: AddressSuggestion[] };
+        setAddrSuggestions(data.suggestions?.slice(0, 5) ?? []);
+      } catch (err) {
+        if ((err as DOMException).name !== "AbortError") setAddrSuggestions([]);
+      } finally {
+        if (!controller.signal.aborted) setAddrSuggestLoading(false);
+      }
+    }, 280);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [homeAddress, step]);
 
   async function finish(skip = false) {
     if (saving) return;
@@ -80,6 +118,10 @@ export function OnboardingFlow({ teenName }: { teenName: string }) {
           motivation,
           preferredTaskFormat: format,
           weekendAvailability: weekend ?? false,
+          homeAddress: homeAddress.trim() || undefined,
+          homeLat: homeLat ?? undefined,
+          homeLng: homeLng ?? undefined,
+          searchRadiusKm,
           interests,
         });
       }
@@ -188,6 +230,66 @@ export function OnboardingFlow({ teenName }: { teenName: string }) {
         )}
 
         {step === 4 && (
+          <div className="ui-stack mt-4">
+            <div>
+              <label htmlFor="onb-address" className="mb-1 block text-sm font-medium text-sub">
+                Домашний адрес (необязательно)
+              </label>
+              <input
+                id="onb-address"
+                type="text"
+                value={homeAddress}
+                onChange={(e) => {
+                  setHomeAddress(e.target.value);
+                  setHomeLat(null);
+                  setHomeLng(null);
+                }}
+                placeholder="Начни вводить адрес"
+                autoComplete="street-address"
+                className="w-full rounded-lg border border-edge bg-panel px-3 py-2 text-sm text-ink focus:border-accent/50 focus:outline-none"
+              />
+              {addrSuggestions.length > 0 ? (
+                <div className="mt-1 overflow-hidden rounded-xl border border-edge bg-panel shadow-lg shadow-black/10">
+                  {addrSuggestions.map((item) => (
+                    <button
+                      key={item.unrestrictedValue ?? item.value}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setHomeAddress(item.value);
+                        setHomeLat(item.lat ?? null);
+                        setHomeLng(item.lng ?? null);
+                        setAddrSuggestions([]);
+                      }}
+                      className="block w-full border-0 bg-transparent px-4 py-2.5 text-left text-sm text-ink transition hover:bg-panel-muted"
+                    >
+                      {item.value}
+                    </button>
+                  ))}
+                </div>
+              ) : addrSuggestLoading ? (
+                <p className="m-0 mt-1 text-xs text-sub">Ищем адрес…</p>
+              ) : null}
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-medium text-sub">
+                Радиус поиска задач: {searchRadiusKm} км
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {RADIUS_OPTIONS.map((km) => (
+                  <Chip key={km} active={searchRadiusKm === km} onClick={() => setSearchRadiusKm(km)}>
+                    {km} км
+                  </Chip>
+                ))}
+              </div>
+              <p className="mt-2 m-0 text-xs text-sub-deep">
+                Задачи за пределами радиуса не пропадут — это только фильтр по умолчанию.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {step === 5 && (
           <div className="mt-4">
             <p className="mb-3 text-sm text-sub">Подберём задачи под твои интересы.</p>
             <div className="flex flex-wrap gap-2">

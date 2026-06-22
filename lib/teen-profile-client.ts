@@ -50,6 +50,10 @@ async function fetchProfile(): Promise<TeenProfile | null> {
             amount: (t.earning_goal_amount as number) ?? undefined,
           }
         : undefined,
+    homeAddress: (t.home_address as string) ?? undefined,
+    homeLat: (t.home_lat as number) ?? undefined,
+    homeLng: (t.home_lng as number) ?? undefined,
+    searchRadiusKm: (t.search_radius_km as number) ?? undefined,
   };
 }
 
@@ -91,6 +95,10 @@ export async function updateTeenProfileFields(patch: Partial<TeenProfile>): Prom
     tpPatch.earning_goal_title = patch.earningGoal.title ?? null;
     tpPatch.earning_goal_amount = patch.earningGoal.amount ?? null;
   }
+  if (patch.homeAddress !== undefined) tpPatch.home_address = patch.homeAddress || null;
+  if (patch.homeLat !== undefined) tpPatch.home_lat = patch.homeLat ?? null;
+  if (patch.homeLng !== undefined) tpPatch.home_lng = patch.homeLng ?? null;
+  if (patch.searchRadiusKm !== undefined) tpPatch.search_radius_km = patch.searchRadiusKm ?? null;
 
   if (Object.keys(basePatch).length > 0) {
     await supabase.from("profiles").update(basePatch).eq("id", user.id);
