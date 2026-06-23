@@ -232,6 +232,24 @@ export async function deleteTaskDb(taskId: string): Promise<boolean> {
   return !error;
 }
 
+/** Возвращает число активных откликов (не rejected) для списка задач — один запрос. */
+export async function loadTaskApplicantCounts(
+  taskIds: string[],
+): Promise<Record<string, number>> {
+  if (taskIds.length === 0) return {};
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("applications")
+    .select("task_id, status")
+    .in("task_id", taskIds);
+  const counts: Record<string, number> = {};
+  for (const row of (data ?? []) as { task_id: string; status: string }[]) {
+    if (row.status === "rejected") continue;
+    counts[row.task_id] = (counts[row.task_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
 export function getEmployerTaskStatsCached() {
   const summary = {
     total: tasksCache.length,

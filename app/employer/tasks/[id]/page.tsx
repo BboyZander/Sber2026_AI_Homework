@@ -1,5 +1,4 @@
-import { AppShell } from "@/components/shared/AppShell";
-import { EmployerTaskDetailView } from "@/components/employer/EmployerTaskDetailView";
+import { redirect } from "next/navigation";
 
 export default async function EmployerTaskDetailPage({
   params,
@@ -7,10 +6,5 @@ export default async function EmployerTaskDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
-  return (
-    <AppShell variant="employer" title="Задача">
-      <EmployerTaskDetailView taskId={id} />
-    </AppShell>
-  );
+  redirect(`/employer/tasks?selected=${encodeURIComponent(id)}`);
 }

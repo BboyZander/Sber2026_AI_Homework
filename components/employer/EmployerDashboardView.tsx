@@ -91,7 +91,7 @@ export function EmployerDashboardView({
             Публикуйте задачи и следите за статусами. Только юр. лица и ИП.
           </p>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <CTAButton href="/employer/tasks/new" className="w-full justify-center sm:w-auto">
+            <CTAButton href="/employer/tasks?action=create" className="w-full justify-center sm:w-auto">
               Создать задачу
             </CTAButton>
             <Link
@@ -122,7 +122,7 @@ export function EmployerDashboardView({
         <SectionTitle
           title="Последние задачи"
           action={
-            <CTAButton href="/employer/tasks/new" variant="ghost">
+            <CTAButton href="/employer/tasks?action=create" variant="ghost">
               Новая задача
             </CTAButton>
           }
@@ -132,7 +132,7 @@ export function EmployerDashboardView({
             emoji="📋"
             title="Задач пока нет"
             description="Создайте первую — она появится в списке и в каталоге подростка."
-            action={<CTAButton href="/employer/tasks/new">Создать задачу</CTAButton>}
+            action={<CTAButton href="/employer/tasks?action=create">Создать задачу</CTAButton>}
           />
         ) : (
           <div className="flex flex-col gap-3">

@@ -167,6 +167,18 @@ main {
   }
 }
 
+.page-shell-kanban {
+  height: calc(100dvh - var(--header-h));
+  overflow: hidden;
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .page-shell-kanban {
+    margin-left: var(--sidebar-w);
+  }
+}
+
 .stack {
   display: flex;
   flex-direction: column;

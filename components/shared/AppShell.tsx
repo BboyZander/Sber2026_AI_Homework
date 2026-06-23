@@ -11,10 +11,12 @@ export function AppShell({
   variant,
   title,
   children,
+  fullWidth = false,
 }: {
   variant: "teen" | "employer";
   title?: string;
   children: React.ReactNode;
+  fullWidth?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -22,7 +24,7 @@ export function AppShell({
     <>
       <Header title={title} />
       <Sidebar variant={variant} pathname={pathname} />
-      <main className="page-shell">
+      <main className={fullWidth ? "page-shell-kanban" : "page-shell"}>
         <PageTransition pathname={pathname}>{children}</PageTransition>
       </main>
       {variant === "teen" ? <TeenFlowToastHost /> : null}

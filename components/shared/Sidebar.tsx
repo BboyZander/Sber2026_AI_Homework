@@ -37,13 +37,7 @@ function IconBriefcase() {
     </svg>
   );
 }
-function IconPlus() {
-  return (
-    <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-    </svg>
-  );
-}
+
 
 const teenLinks: { href: string; label: string; icon: ReactNode }[] = [
   { href: "/teen/dashboard", label: "Главная", icon: <IconHome /> },
@@ -55,7 +49,6 @@ const employerLinks: { href: string; label: string; icon: ReactNode }[] = [
   { href: "/employer/dashboard", label: "Главная", icon: <IconHome /> },
   { href: "/employer/profile", label: "Данные", icon: <IconBuilding /> },
   { href: "/employer/tasks", label: "Мои задачи", icon: <IconBriefcase /> },
-  { href: "/employer/tasks/new", label: "Новая", icon: <IconPlus /> },
 ];
 
 function resolveActiveNavHref(

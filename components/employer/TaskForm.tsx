@@ -360,9 +360,9 @@ function previewComparablePay(values: FormData): number {
   return Math.round(rate * h);
 }
 
-type TaskFormProps = { editTaskId?: string };
+type TaskFormProps = { editTaskId?: string; onCreated?: (task: Task) => void };
 
-export function TaskForm({ editTaskId }: TaskFormProps) {
+export function TaskForm({ editTaskId, onCreated }: TaskFormProps) {
   const searchParams = useSearchParams();
   const [values, setValues] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -658,10 +658,10 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
                 editTaskId,
                 buildEmployerTaskPayload(values, complianceResult, st),
               );
-              if (nextTask) setCreated(nextTask);
+              if (nextTask) { setCreated(nextTask); if (onCreated) { onCreated(nextTask); return; } }
             } else {
               const created = await createNewTask("draft");
-              if (created) setCreated(created);
+              if (created) { setCreated(created); if (onCreated) { onCreated(created); return; } }
             }
             setPublishing(false);
           }, 220);
@@ -680,10 +680,10 @@ export function TaskForm({ editTaskId }: TaskFormProps) {
               editTaskId,
               buildEmployerTaskPayload(values, complianceResult, st),
             );
-            if (nextTask) setCreated(nextTask);
+            if (nextTask) { setCreated(nextTask); if (onCreated) { onCreated(nextTask); return; } }
           } else {
             const created = await createNewTask("open");
-            if (created) setCreated(created);
+            if (created) { setCreated(created); if (onCreated) { onCreated(created); return; } }
           }
           setPublishing(false);
         }, 320);
