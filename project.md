@@ -112,6 +112,8 @@
 
 - **`app/api/address-suggest/route.ts`**: прокси для адресных подсказок через Яндекс Геокодер. Использует `YANDEX_GEOCODER_API_KEY` (или `YANDEX_MAPS_API_KEY`) на сервере; если ключ не задан, форма остаётся ручной и не ломает демо.
 - **`app/api/demo-reset/route.ts`**: сброс демо-контента (задачи + отклики/избранное) к зафиксированному сид-состоянию через service-role. Гейт — только залогиненный пользователь. ⚠️ Демо-эндпоинт, на проде включать нельзя.
+- **`app/api/agent/route.ts`** (E17): чат с ИИ-ассистентом подростка — стримит текстовый ответ, затем JSON структурных действий (рекомендации/предложения откликнуться) через `AGENT_ACTIONS_SENTINEL`. Гейт: только подросток, `OPENAI_API_KEY` задан, рантайм-флаг `app_settings.ai_agent_enabled` включён, дневной лимит сообщений (`agent_usage`) не превышен.
+- **`app/api/agent/status/route.ts`** (E17): `{ enabled: boolean }` — определяет видимость FAB ассистента у подростка.
 - **`app/auth/callback/route.ts`**: завершение регистрации/входа (обмен кода на сессию при подтверждении e-mail + создание профиля), редирект по роли.
 
 ### Supabase (БД, авторизация, слой данных)
@@ -137,6 +139,22 @@
 - **Яндекс Геокодер** — опциональная интеграция для быстрого заполнения адреса офлайн-задачи. На Vercel нужно добавить `YANDEX_GEOCODER_API_KEY` (или `YANDEX_MAPS_API_KEY`); токен не уходит в браузер, запросы идут через `/api/address-suggest`.
 - В кабинете разработчика Яндекса для ключа нужен сервис **JavaScript API и HTTP Геокодер**. В проекте используется HTTP endpoint `https://geocode-maps.yandex.ru/1.x/`, без подключения JS-карты на страницу.
 - Если env-переменная не задана или Геокодер недоступен, `/api/address-suggest` возвращает пустой список, а форма остаётся в ручном режиме ввода адреса.
+- **OpenAI Agents SDK** (E17, ИИ-ассистент подростка) — личный некоммерческий ключ `OPENAI_API_KEY` (server-only); без него FAB ассистента полностью скрыт. Доступ дополнительно гасится рантайм-флагом `app_settings.ai_agent_enabled` (выключен по умолчанию, флипается через Supabase dashboard, без редеплоя) и дневным лимитом сообщений на подростка (`agent_usage`, `AI_AGENT_DAILY_LIMIT`).
+
+### ИИ-ассистент подростка (E17)
+
+Deep-agent архитектура на `@openai/agents`: оркестратор `assistantAgent` + под-агент `recommenderAgent`
+(подключён через `Agent.asTool` — контекст-квапантин, не видит весь чат). Инструменты — тонкие обёртки
+над уже существующей бизнес-логикой каталога:
+
+- **`lib/agent/contract.ts`**: общие типы сервер↔клиент (сообщения, рекомендации, предложения отклика, sentinel-разделитель текста/действий в стриме).
+- **`lib/agent/context.ts`**: минимальный контекст о подростке для LLM (имя, возраст, интересы, мотивация, цель заработка) — без email и точных координат.
+- **`lib/agent/tools.ts`**: `search_tasks` / `get_task_details` / `explain_fit` (поверх `computeTaskFitReasons`) / `propose_application` (не откликается сам — формирует карточку; сервер ре-валидирует `teenCanRespondByAge` + `getMinorComplianceResult` defense-in-depth).
+- **`lib/agent/agents.ts`**: сборка `assistantAgent`/`recommenderAgent`, system-промпты, output guardrail.
+- **`lib/agent/guard.ts`**: гейт «ключ задан → флаг включён → дневной лимит не превышен» (`agent_usage`, service-role upsert).
+- **`lib/agent-client.ts`**: клиентский стрим-ридер ответа + `confirmAgentApplyProposal` (вызывает существующий `applyToTask` из `lib/teen-applications-client.ts` — отклик только по явному тапу кнопки, human-in-the-loop).
+- **`components/teen/assistant/*`**: `AssistantRoot` (монтируется в `AppShell` при `variant="teen"`, сам решает видимость по `/api/agent/status`), `AssistantFab` (плавающий шар), `AssistantChatPanel` (drawer/bottom-sheet), `AssistantMessage`, `TaskRecommendationCard`, `ApplyProposalCard`.
+- Схема: `supabase/migrations/0004_agent.sql` (`app_settings`, `agent_usage` + RLS). История чата не персистится (демо) — стейт живёт в браузере на ходе сессии.
 
 ### Mobile-адаптация
 

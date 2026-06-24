@@ -6,6 +6,7 @@ import { PageTransition } from "./PageTransition";
 import { Sidebar } from "./Sidebar";
 import { EmployerFlowToastHost } from "./EmployerFlowToastHost";
 import { TeenFlowToastHost } from "./TeenFlowToastHost";
+import { AssistantRoot } from "@/components/teen/assistant/AssistantRoot";
 
 export function AppShell({
   variant,
@@ -28,6 +29,7 @@ export function AppShell({
         <PageTransition pathname={pathname}>{children}</PageTransition>
       </main>
       {variant === "teen" ? <TeenFlowToastHost /> : null}
+      {variant === "teen" ? <AssistantRoot /> : null}
       {variant === "employer" ? <EmployerFlowToastHost /> : null}
     </>
   );
